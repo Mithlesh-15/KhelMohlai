@@ -47,21 +47,21 @@ function formatOvers(totalBalls) {
   return `${Math.floor(safeBalls / 6)}.${safeBalls % 6}`;
 }
 
-function formatBallLabel(ball) {
-  if (!ball) {
-    return '-';
-  }
+// function formatBallLabel(ball) {
+//   if (!ball) {
+//     return '-';
+//   }
 
-  if (ball.is_wicket) {
-    return 'W';
-  }
+//   if (ball.is_wicket) {
+//     return 'W';
+//   }
 
-  if (ball.extra_type === 'WD') {
-    return 'WD';
-  }
+//   if (ball.extra_type === 'WD') {
+//     return 'WD';
+//   }
 
-  return String(ball.runs ?? 0);
-}
+//   return String(ball.runs ?? 0);
+// }
 
 function TeamBadge({ team, align = 'left' }) {
   const isRightAligned = align === 'right';
@@ -520,50 +520,7 @@ function Match() {
                 </div>
               </section>
 
-              <section className="surface-card">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="eyebrow">Recent Balls</p>
-                    <h2 className="mt-2 text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      Last over
-                    </h2>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-3">
-                  {balls.length > 0 ? (
-                    balls.map((ball) => (
-                      <span
-                        key={ball.id}
-                        className="inline-flex h-11 min-w-11 items-center justify-center rounded-full border px-3 text-sm font-semibold"
-                        style={{
-                          backgroundColor: ball.is_wicket
-                            ? 'var(--live-bg)'
-                            : ball.extra_type === 'WD'
-                              ? 'var(--upcoming-bg)'
-                              : '#f8fafc',
-                          borderColor: ball.is_wicket
-                            ? 'var(--live-border)'
-                            : ball.extra_type === 'WD'
-                              ? 'var(--upcoming-border)'
-                              : 'var(--border-soft)',
-                          color: ball.is_wicket
-                            ? 'var(--danger-text)'
-                            : ball.extra_type === 'WD'
-                              ? 'var(--upcoming-text)'
-                              : 'var(--text-primary)',
-                        }}
-                      >
-                        {formatBallLabel(ball)}
-                      </span>
-                    ))
-                  ) : (
-                    <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      No ball events yet.
-                    </p>
-                  )}
-                </div>
-              </section>
+              
 
               {errorMessage ? (
                 <section
