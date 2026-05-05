@@ -1,16 +1,15 @@
 import React from 'react';
-import NavBar from "./components/NavBar"
-import BottemBar from "./components/BottomBar"
-import Home from './pages/Home';
+import { Outlet } from 'react-router-dom';
+import NavBar from './components/NavBar';
+import BottemBar from './components/BottomBar';
+
 function App() {
   return (
-    <>
-      <div className="app-shell">
-        <NavBar />
-        <Home />
-        <BottemBar /> 
-      </div>
-    </>
+    <div className="app-shell">
+      <NavBar />
+      <Outlet />
+      <BottemBar />
+    </div>
   );
 }
 
