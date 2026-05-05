@@ -63,6 +63,13 @@ function NavBar() {
 
   const handleLogout = async () => {
     setIsSigningOut(true);
+  const user = await supabase.auth.getUser();
+console.log(user.data.user.email)
+  await supabase
+    .from("users")
+    .update({ is_active: false })
+    .eq("email", user.data.user.email);
+
 
     const { error } = await supabase.auth.signOut();
 
@@ -72,7 +79,7 @@ function NavBar() {
     }
 
     setIsSigningOut(false);
-  };
+};
 
   const userLabel = session?.user?.email || session?.user?.phone || 'Account';
 
