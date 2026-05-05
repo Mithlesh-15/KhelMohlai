@@ -9,12 +9,14 @@ import {
   Route,
   RouterProvider,
 } from "react-router-dom";
+import Match from "./pages/Match.jsx";
 
 const router = createBrowserRouter(
   createRoutesFromElements(
     <>
       <Route path="/" element={<App />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/match/:matchId" element={<Match />} />
     </>,
   ),
 );

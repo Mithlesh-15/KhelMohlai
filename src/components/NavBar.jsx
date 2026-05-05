@@ -64,19 +64,19 @@ function NavBar() {
   const handleLogout = async () => {
     setIsSigningOut(true);
   const user = await supabase.auth.getUser();
-console.log(user.data.user.email)
-  await supabase
-    .from("users")
-    .update({ is_active: false })
-    .eq("email", user.data.user.email);
+  console.log(user)
+  // await supabase
+  //   .from("users")
+  //   .update({ is_active: false })
+  //   .eq("email", user.data.user.email);
 
 
-    const { error } = await supabase.auth.signOut();
+  //   const { error } = await supabase.auth.signOut();
 
-    if (!error) {
-      setSession(null);
-      setIsDropdownOpen(false);
-    }
+  //   if (!error) {
+  //     setSession(null);
+  //     setIsDropdownOpen(false);
+  //   }
 
     setIsSigningOut(false);
 };
