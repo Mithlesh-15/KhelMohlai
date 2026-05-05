@@ -20,29 +20,33 @@ function BottomBar() {
         }}
         aria-label="Bottom navigation"
       >
-        {navItems.map(({ label, to, icon: Icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) =>
-              [
-                'group flex min-w-0 flex-1 items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ease-out sm:px-5 lg:px-6',
-                isActive ? 'shadow-sm' : 'hover:-translate-y-0.5',
-              ].join(' ')
-            }
-            style={({ isActive }) => ({
-              backgroundColor: isActive ? 'rgba(1, 69, 242, 0.12)' : 'transparent',
-              color: isActive ? '#0145F2' : 'var(--text-secondary)',
-              boxShadow: isActive ? 'inset 0 0 0 1px rgba(1, 69, 242, 0.1)' : 'none',
-            })}
-          >
-            <span className="flex items-center gap-2.5 lg:gap-3">
-              <Icon className="h-5 w-5 transition-transform duration-200 group-hover:scale-105 lg:h-6 lg:w-6" />
-              <span className="whitespace-nowrap">{label}</span>
-            </span>
-          </NavLink>
-        ))}
+        {navItems.map(({ label, to, icon, end }) => {
+          const NavIcon = icon;
+
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) =>
+                [
+                  'group flex min-w-0 flex-1 items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ease-out sm:px-5 lg:px-6',
+                  isActive ? 'shadow-sm' : 'hover:-translate-y-0.5',
+                ].join(' ')
+              }
+              style={({ isActive }) => ({
+                backgroundColor: isActive ? 'rgba(1, 69, 242, 0.12)' : 'transparent',
+                color: isActive ? '#0145F2' : 'var(--text-secondary)',
+                boxShadow: isActive ? 'inset 0 0 0 1px rgba(1, 69, 242, 0.1)' : 'none',
+              })}
+            >
+              <span className="flex items-center gap-2.5 lg:gap-3">
+                <NavIcon className="h-5 w-5 transition-transform duration-200 group-hover:scale-105 lg:h-6 lg:w-6" />
+                <span className="whitespace-nowrap">{label}</span>
+              </span>
+            </NavLink>
+          );
+        })}
       </nav>
     </div>
   );

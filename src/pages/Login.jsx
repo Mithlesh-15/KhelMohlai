@@ -50,7 +50,7 @@ console.log(updateError)
 
       // Success
       navigate("/");
-    } catch (err) {
+    } catch {
       setError("Something went wrong");
     } finally {
       setLoading(false);
