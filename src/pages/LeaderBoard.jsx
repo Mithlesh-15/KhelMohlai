@@ -1,28 +1,38 @@
-import React, { useEffect, useState } from 'react';
-import { supabase } from '../utils/supabase';
-
-const FALLBACK_LOGO =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="18" fill="%23dbe7ff"/><text x="50%" y="56%" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="%230145f2">T</text></svg>';
+import React from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  fetchLeaderboardTable,
+  leaderboardQueryKeys,
+} from "../features/leaderboard/queries";
 
 function LoadingRow() {
   return (
     <div
-      className="grid min-w-[500px] grid-cols-[44px_minmax(150px,1.8fr)_46px_46px_46px_56px] animate-pulse items-center gap-2 rounded-[1.2rem] border px-3 py-3 sm:min-w-[540px] sm:grid-cols-[52px_minmax(180px,1.8fr)_58px_58px_58px_66px] sm:gap-3 sm:px-4 sm:py-4"
+      className="grid min-w-[620px] grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] animate-pulse items-center gap-2 rounded-[1.2rem] border px-3 py-3 sm:min-w-[700px] sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
       style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.72)',
-        borderColor: 'rgba(217, 226, 236, 0.85)',
+        backgroundColor: "rgba(255, 255, 255, 0.72)",
+        borderColor: "rgba(217, 226, 236, 0.85)",
       }}
     >
-      <div className="h-7 w-7 rounded-full sm:h-8 sm:w-8" style={{ backgroundColor: 'var(--skeleton)' }} />
+      <div
+        className="h-7 w-7 rounded-full sm:h-8 sm:w-8"
+        style={{ backgroundColor: "var(--skeleton)" }}
+      />
       <div className="flex items-center gap-2 sm:gap-3">
-        <div className="h-10 w-10 rounded-2xl sm:h-11 sm:w-11" style={{ backgroundColor: 'var(--skeleton)' }} />
-        <div className="h-4 w-28 rounded-full" style={{ backgroundColor: 'var(--skeleton)' }} />
+        <div
+          className="h-10 w-10 rounded-2xl sm:h-11 sm:w-11"
+          style={{ backgroundColor: "var(--skeleton)" }}
+        />
+        <div
+          className="h-4 w-28 rounded-full"
+          style={{ backgroundColor: "var(--skeleton)" }}
+        />
       </div>
-      {[0, 1, 2, 3].map((item) => (
+      {[0, 1, 2, 3, 4].map((item) => (
         <div
           key={item}
           className="ml-auto h-4 w-8 rounded-full"
-          style={{ backgroundColor: 'var(--skeleton)' }}
+          style={{ backgroundColor: "var(--skeleton)" }}
         />
       ))}
     </div>
@@ -30,75 +40,21 @@ function LoadingRow() {
 }
 
 function LeaderBoard() {
-  const [teams, setTeams] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: leaderboardQueryKeys.table,
+    queryFn: fetchLeaderboardTable,
+    staleTime: 20 * 60 * 1000,
+    gcTime: 5 * 24 * 60 * 60 * 1000,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+  });
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchTeams = async () => {
-      setIsLoading(true);
-      setErrorMessage('');
-
-      try {
-        const { data, error } = await supabase
-          .from('teams')
-          .select('id, name, logo, played, wins, losses, points');
-
-        if (error) {
-          throw error;
-        }
-
-        const sortedTeams = (data || [])
-          .map((team) => {
-            const played = Number(team.played) || 0;
-            const wins = Number(team.wins) || 0;
-            const losses = Number(team.losses) || 0;
-            const derivedPoints = typeof team.points === 'number' ? team.points : wins * 2;
-
-            return {
-              id: team.id,
-              name: team.name || 'Unnamed Team',
-              logo: team.logo || FALLBACK_LOGO,
-              played,
-              wins,
-              losses,
-              points: derivedPoints,
-            };
-          })
-          .sort((teamA, teamB) => {
-            if (teamB.points !== teamA.points) {
-              return teamB.points - teamA.points;
-            }
-
-            return teamB.wins - teamA.wins;
-          })
-          .map((team, index) => ({
-            ...team,
-            position: index + 1,
-          }));
-
-        if (isMounted) {
-          setTeams(sortedTeams);
-        }
-      } catch {
-        if (isMounted) {
-          setErrorMessage('Unable to load the points table right now. Please try again shortly.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchTeams();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const teams = data ?? [];
+  const errorMessage =
+    error?.message ||
+    "Unable to load the points table right now. Please try again shortly.";
 
   return (
     <main className="px-4 pb-28 pt-3 sm:px-6 lg:px-8">
@@ -110,17 +66,20 @@ function LeaderBoard() {
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
                 Leaderboard
               </h1>
-              <p className="mt-2 text-sm sm:text-base" style={{ color: 'var(--text-secondary)' }}>
-                Team rankings sorted by points first, then total wins.
+              <p
+                className="mt-2 text-sm sm:text-base"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                Team rankings sorted by points first, then net run rate.
               </p>
             </div>
-            {!isLoading && !errorMessage && teams.length > 0 ? (
+            {!isLoading && !isError && teams.length > 0 ? (
               <div
                 className="hidden rounded-full border px-4 py-2 text-sm font-medium sm:block"
                 style={{
-                  borderColor: 'rgba(191, 210, 255, 0.9)',
-                  backgroundColor: 'rgba(232, 240, 255, 0.78)',
-                  color: 'var(--color-primary)',
+                  borderColor: "rgba(191, 210, 255, 0.9)",
+                  backgroundColor: "rgba(232, 240, 255, 0.78)",
+                  color: "var(--color-primary)",
                 }}
               >
                 {teams.length} Teams
@@ -133,17 +92,17 @@ function LeaderBoard() {
           className="surface-card flex min-h-[calc(100vh-12.5rem)] flex-col overflow-hidden p-0"
           style={{
             background:
-              'linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.94))',
+              "linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.94))",
           }}
         >
           <div className="flex-1 overflow-y-auto overflow-x-auto px-2 py-2 sm:px-3 sm:py-3">
-            <div className="flex min-w-[500px] flex-col gap-2 sm:min-w-[540px] sm:gap-3">
+            <div className="flex min-w-[620px] flex-col gap-2 sm:min-w-[700px] sm:gap-3">
               <div
-                className="grid grid-cols-[44px_minmax(150px,1.8fr)_46px_46px_46px_56px] items-center gap-2 border-b px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] sm:grid-cols-[52px_minmax(180px,1.8fr)_58px_58px_58px_66px] sm:gap-3 sm:px-4 sm:py-4 sm:text-xs"
+                className="sticky top-0 z-10 grid grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] items-center gap-2 border-b px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4 sm:text-xs"
                 style={{
-                  borderColor: 'rgba(217, 226, 236, 0.95)',
-                  color: 'var(--text-secondary)',
-                  backgroundColor: 'rgba(248, 250, 252, 0.85)',
+                  borderColor: "rgba(217, 226, 236, 0.95)",
+                  color: "var(--text-secondary)",
+                  backgroundColor: "rgba(248, 250, 252, 0.85)",
                 }}
               >
                 <span>Pos</span>
@@ -152,6 +111,7 @@ function LeaderBoard() {
                 <span className="text-right">W</span>
                 <span className="text-right">L</span>
                 <span className="text-right">Pts</span>
+                <span className="text-right">NRR</span>
               </div>
 
               {isLoading ? (
@@ -163,52 +123,62 @@ function LeaderBoard() {
                 </>
               ) : null}
 
-              {!isLoading && errorMessage ? (
+              {!isLoading && isError ? (
                 <section
                   className="feedback-panel"
                   style={{
-                    backgroundColor: '#fffaf9',
-                    borderColor: 'rgba(248, 113, 113, 0.24)',
-                    color: 'var(--text-primary)',
+                    backgroundColor: "#fffaf9",
+                    borderColor: "rgba(248, 113, 113, 0.24)",
+                    color: "var(--text-primary)",
                   }}
                 >
-                  <h2 className="text-base font-semibold">Something went wrong</h2>
-                  <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <h2 className="text-base font-semibold">
+                    Something went wrong
+                  </h2>
+                  <p
+                    className="mt-2 text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     {errorMessage}
                   </p>
                 </section>
               ) : null}
 
-              {!isLoading && !errorMessage && teams.length === 0 ? (
+              {!isLoading && !isError && teams.length === 0 ? (
                 <section
                   className="feedback-panel"
                   style={{
-                    backgroundColor: 'rgba(255, 255, 255, 0.94)',
-                    borderColor: 'var(--border-soft)',
+                    backgroundColor: "rgba(255, 255, 255, 0.94)",
+                    borderColor: "var(--border-soft)",
                   }}
                 >
-                  <h2 className="text-base font-semibold">No teams available</h2>
-                  <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <h2 className="text-base font-semibold">
+                    No teams available
+                  </h2>
+                  <p
+                    className="mt-2 text-sm"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     Add teams to the tournament to see the points table here.
                   </p>
                 </section>
               ) : null}
 
-              {!isLoading && !errorMessage
+              {!isLoading && !isError
                 ? teams.map((team) => (
                     <article
                       key={team.id}
-                      className="grid min-w-[500px] grid-cols-[44px_minmax(150px,1.8fr)_46px_46px_46px_56px] items-center gap-2 rounded-[1.2rem] border px-3 py-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 sm:min-w-[540px] sm:grid-cols-[52px_minmax(180px,1.8fr)_58px_58px_58px_66px] sm:gap-3 sm:px-4 sm:py-4"
+                      className="grid min-w-[620px] grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] items-center gap-2 rounded-[1.2rem] border px-3 py-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 sm:min-w-[700px] sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
                       style={{
                         background:
-                          team.position <= 3
-                            ? 'linear-gradient(135deg, rgba(232, 240, 255, 0.9), rgba(255, 255, 255, 0.98))'
-                            : 'rgba(255, 255, 255, 0.86)',
+                          team.position <= 4
+                            ? "linear-gradient(135deg, rgba(232, 240, 255, 0.9), rgba(255, 255, 255, 0.98))"
+                            : "rgba(255, 255, 255, 0.86)",
                         borderColor:
-                          team.position <= 3
-                            ? 'rgba(191, 210, 255, 0.95)'
-                            : 'rgba(217, 226, 236, 0.9)',
-                        boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)',
+                          team.position <= 4
+                            ? "rgba(191, 210, 255, 0.95)"
+                            : "rgba(217, 226, 236, 0.9)",
+                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
                       }}
                     >
                       <div className="flex items-center">
@@ -216,9 +186,13 @@ function LeaderBoard() {
                           className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold sm:h-9 sm:w-9 sm:text-sm"
                           style={{
                             backgroundColor:
-                              team.position <= 3 ? 'rgba(1, 69, 242, 0.12)' : 'rgba(226, 232, 240, 0.7)',
+                              team.position <= 4
+                                ? "rgba(1, 69, 242, 0.12)"
+                                : "rgba(226, 232, 240, 0.7)",
                             color:
-                              team.position <= 3 ? 'var(--color-primary)' : 'var(--text-primary)',
+                              team.position <= 4
+                                ? "var(--color-primary)"
+                                : "var(--text-primary)",
                           }}
                         >
                           {team.position}
@@ -230,17 +204,31 @@ function LeaderBoard() {
                           src={team.logo}
                           alt={`${team.name} logo`}
                           className="h-9 w-9 rounded-xl border object-cover sm:h-10 sm:w-10 sm:rounded-2xl"
-                          style={{ borderColor: 'rgba(191, 210, 255, 0.65)' }}
+                          style={{ borderColor: "rgba(191, 210, 255, 0.65)" }}
                         />
                         <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold sm:text-sm">{team.name}</p>
+                          <p className="truncate text-xs font-semibold sm:text-sm">
+                            {team.name}
+                          </p>
                         </div>
                       </div>
 
-                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">{team.played}</span>
-                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">{team.wins}</span>
-                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">{team.losses}</span>
-                      <span className="text-right text-sm font-bold tabular-nums sm:text-sm">{team.points}</span>
+                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
+                        {team.played}
+                      </span>
+                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
+                        {team.wins}
+                      </span>
+                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
+                        {team.losses}
+                      </span>
+                      <span className="text-right text-sm font-bold tabular-nums sm:text-sm">
+                        {team.points}
+                      </span>
+                      <span className="text-right text-xs font-semibold tabular-nums sm:text-sm">
+                        {team.netRunRate >= 0 ? "+" : ""}
+                        {team.netRunRate.toFixed(2)}
+                      </span>
                     </article>
                   ))
                 : null}

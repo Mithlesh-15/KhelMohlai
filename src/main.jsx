@@ -14,6 +14,7 @@ import {
 import Match from './pages/Match.jsx';
 import LeaderBoard from './pages/LeaderBoard.jsx';
 import Home from './pages/Home.jsx';
+import Clear from './pages/Clear.jsx';
 import { queryClient } from './lib/queryClient';
 
 const router = createBrowserRouter(
@@ -25,6 +26,7 @@ const router = createBrowserRouter(
       </Route>
       <Route path="/login" element={<Login />} />
       <Route path="/match/:matchId" element={<Match />} />
+      <Route path="/clear" element={<Clear />} />
     </>,
   ),
 );

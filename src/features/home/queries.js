@@ -1,23 +1,19 @@
-import { supabase } from '../../utils/supabase';
+import { supabase } from "../../utils/supabase";
 
 const FALLBACK_TEAM = {
   id: null,
-  name: 'TBD',
-  logo: '',
+  name: "TBD",
+  logo: "",
 };
 
 export const homeQueryKeys = {
-  teams: ['teams'],
-  matches: ['matches'],
-  matchesWithTeams: ['matches-with-teams'],
+  teams: ["teams"],
+  matches: ["matches"],
+  matchesWithTeams: ["matches-with-teams"],
 };
 
 export async function fetchTeams() {
-
-  console .log('Fetching teams...');
-  const { data, error } = await supabase
-    .from('teams')
-    .select('id, name, logo');
+  const { data, error } = await supabase.from("teams").select("id, name, logo");
 
   if (error) {
     throw error;
@@ -28,9 +24,9 @@ export async function fetchTeams() {
 
 export async function fetchMatches() {
   const { data, error } = await supabase
-    .from('matches')
-    .select('id, team1_id, team2_id, start_time, status')
-    .order('start_time', { ascending: true });
+    .from("matches")
+    .select("id, team1_id, team2_id, start_time, status")
+    .order("start_time", { ascending: true });
 
   if (error) {
     throw error;
@@ -40,50 +36,56 @@ export async function fetchMatches() {
 }
 
 function normalizeStatus(status) {
-  const value = String(status ?? '').trim().toLowerCase();
+  const value = String(status ?? "")
+    .trim()
+    .toLowerCase();
 
-  if (value === 'completed' || value === 'complete' || value === 'finished') {
-    return 'completed';
+  if (value === "completed" || value === "complete" || value === "finished") {
+    return "completed";
   }
 
-  if (value === 'live' || value === 'ongoing' || value === 'in_progress') {
-    return 'live';
+  if (value === "live" || value === "ongoing" || value === "in_progress") {
+    return "live";
   }
 
-  return 'upcoming';
+  return "upcoming";
 }
 
 function formatMatchStartTime(startTime) {
   if (!startTime) {
-    return 'Time not announced';
+    return "Time not announced";
   }
 
   const matchDate = new Date(startTime);
 
   if (Number.isNaN(matchDate.getTime())) {
-    return 'Time not announced';
+    return "Time not announced";
   }
 
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(today.getDate() + 1);
-  const matchDay = new Date(matchDate.getFullYear(), matchDate.getMonth(), matchDate.getDate());
+  const matchDay = new Date(
+    matchDate.getFullYear(),
+    matchDate.getMonth(),
+    matchDate.getDate(),
+  );
 
   let dayLabel = matchDate.toLocaleDateString([], {
-    month: 'short',
-    day: 'numeric',
+    month: "short",
+    day: "numeric",
   });
 
   if (matchDay.getTime() === today.getTime()) {
-    dayLabel = 'Today';
+    dayLabel = "Today";
   } else if (matchDay.getTime() === tomorrow.getTime()) {
-    dayLabel = 'Tomorrow';
+    dayLabel = "Tomorrow";
   }
 
   const timeLabel = matchDate.toLocaleTimeString([], {
-    hour: 'numeric',
-    minute: '2-digit',
+    hour: "numeric",
+    minute: "2-digit",
   });
 
   return `${dayLabel}, ${timeLabel}`;
@@ -131,14 +133,16 @@ export function filterMatchesByTab(matches, tab) {
     return first - second;
   };
 
-  if (tab === 'completed') {
-    return matches.filter((match) => match.status === 'completed').sort(byStartTime);
+  if (tab === "completed") {
+    return matches
+      .filter((match) => match.status === "completed")
+      .sort(byStartTime);
   }
 
-  if (tab === 'upcoming') {
+  if (tab === "upcoming") {
     return matches
       .filter((match) => {
-        if (match.status === 'completed' || match.status === 'live') {
+        if (match.status === "completed" || match.status === "live") {
           return false;
         }
 
@@ -149,7 +153,7 @@ export function filterMatchesByTab(matches, tab) {
   }
 
   const todaysMatches = matches.filter((match) => {
-    if (match.status === 'live') {
+    if (match.status === "live") {
       return true;
     }
 
@@ -157,11 +161,11 @@ export function filterMatchesByTab(matches, tab) {
   });
 
   return todaysMatches.sort((a, b) => {
-    if (a.status === 'live' && b.status !== 'live') {
+    if (a.status === "live" && b.status !== "live") {
       return -1;
     }
 
-    if (a.status !== 'live' && b.status === 'live') {
+    if (a.status !== "live" && b.status === "live") {
       return 1;
     }
 
