@@ -1,6 +1,8 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import "./index.css";
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import './index.css';
 import App from './App.jsx';
 import Login from './pages/Login.jsx';
 import {
@@ -12,6 +14,7 @@ import {
 import Match from './pages/Match.jsx';
 import LeaderBoard from './pages/LeaderBoard.jsx';
 import Home from './pages/Home.jsx';
+import { queryClient } from './lib/queryClient';
 
 const router = createBrowserRouter(
   createRoutesFromElements(
@@ -26,8 +29,21 @@ const router = createBrowserRouter(
   ),
 );
 
-createRoot(document.getElementById("root")).render(
+const persister = createSyncStoragePersister({
+  storage: window.localStorage,
+  key: 'khelmohlai-query-cache-v1',
+});
+
+createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{
+        persister,
+        maxAge: 24 * 60 * 60 * 1000,
+      }}
+    >
+      <RouterProvider router={router} />
+    </PersistQueryClientProvider>
   </StrictMode>,
 );

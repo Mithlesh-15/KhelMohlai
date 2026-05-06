@@ -17,11 +17,10 @@ export default function Login() {
 
     try {
       // Step 1: Supabase Auth
-      const { error: authError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (authError) {
         setError("Invalid email or password");
@@ -39,7 +38,7 @@ export default function Login() {
         .eq("email", email)
         .eq("is_active", false)
         .select();
-console.log(updateError)
+      console.log(updateError);
       if (updateError || !data || data.length === 0) {
         // Already logged in somewhere else
         await supabase.auth.signOut();
@@ -60,22 +59,16 @@ console.log(updateError)
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-6">
-        
         {/* Title */}
-        <h2 className="text-2xl font-semibold text-center mb-6">
-          Admin Login
-        </h2>
+        <h2 className="text-2xl font-semibold text-center mb-6">Admin Login</h2>
 
         {/* Error */}
         {error && (
-          <div className="mb-4 text-sm text-red-500 text-center">
-            {error}
-          </div>
+          <div className="mb-4 text-sm text-red-500 text-center">{error}</div>
         )}
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-4">
-          
           <input
             type="email"
             placeholder="Email"

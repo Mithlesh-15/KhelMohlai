@@ -64,7 +64,6 @@ function NavBar() {
   const handleLogout = async () => {
     setIsSigningOut(true);
   const user = await supabase.auth.getUser();
-  console.log(user.data.user.email)
   await supabase
     .from("users")
     .update({ is_active: false })
