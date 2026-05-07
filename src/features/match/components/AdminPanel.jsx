@@ -18,6 +18,7 @@ function AdminPanel({
   onWicket,
   onUndo,
   onCustomUpdate,
+  canCustomUpdate,
   onCompleteInnings,
   onCompleteMatch,
 }) {
@@ -107,14 +108,16 @@ function AdminPanel({
         >
           Undo
         </button>
-        <button
-          type="button"
-          disabled={disabled || isSubmitting}
-          className="col-span-2 h-12 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold text-violet-700 shadow-sm disabled:opacity-50"
-          onClick={onCustomUpdate}
-        >
-          Custom Update
-        </button>
+        {canCustomUpdate ? (
+          <button
+            type="button"
+            disabled={disabled || isSubmitting}
+            className="col-span-2 h-12 rounded-xl border border-violet-200 bg-violet-50 text-sm font-semibold text-violet-700 shadow-sm disabled:opacity-50"
+            onClick={onCustomUpdate}
+          >
+            Custom Update
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={disabled || isSubmitting || status !== "live"}

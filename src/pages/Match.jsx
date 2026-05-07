@@ -12,6 +12,8 @@ import NewBowlerModal from "../features/match/components/NewBowlerModal";
 import NewBatterModal from "../features/match/components/NewBatterModal";
 import CustomUpdateModal from "../features/match/components/CustomUpdateModal";
 import NextInningsSetupModal from "../features/match/components/NextInningsSetupModal";
+import { saveManualMatchSync } from "../features/match/manualSync";
+import { ballsToOversLabel } from "../features/match/overs";
 import {
   fetchMatchDetails,
   fetchSession,
@@ -21,8 +23,7 @@ import {
 import { useMatchRealtime } from "../features/match/useMatchRealtime";
 
 function formatOvers(totalBalls) {
-  const balls = Number(totalBalls) || 0;
-  return `${Math.floor(balls / 6)}.${balls % 6}`;
+  return ballsToOversLabel(totalBalls);
 }
 
 function TeamCell({ team, align = "left", score, note }) {
@@ -123,7 +124,6 @@ function Match() {
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchInterval: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -158,6 +158,12 @@ function Match() {
   }, [matchQuery.data]);
 
   const base = matchQuery.data;
+  const isAdminUser = useMemo(() => {
+    const role =
+      session?.user?.app_metadata?.role ?? session?.user?.user_metadata?.role;
+    if (!role) return Boolean(session);
+    return String(role).toLowerCase() === "admin";
+  }, [session]);
   const teams = useMemo(
     () => (base ? [base.match.team1, base.match.team2] : []),
     [base],
@@ -181,7 +187,9 @@ function Match() {
     enabled: Boolean(base?.match?.team1_id),
     staleTime: 2 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchInterval: 2*60 * 60 * 1000
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const team2PlayersQuery = useQuery({
@@ -190,8 +198,9 @@ function Match() {
     enabled: Boolean(base?.match?.team2_id),
     staleTime: 2 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    refetchInterval: 2*60 * 60 * 1000,
     refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const battingPlayers = useMemo(() => {
@@ -225,6 +234,100 @@ function Match() {
     [matchId, queryClient],
   );
 
+  const syncScorecardsCache = useCallback(
+    ({ inningsId, batterRows, bowlerRows }) => {
+      if (!inningsId) return;
+      queryClient.setQueryData(matchQueryKeys.detail(matchId), (prev) => {
+        if (!prev) return prev;
+        const inningsKey = String(inningsId);
+        const nameById = new Map(
+          [
+            ...(team1PlayersQuery.data ?? []),
+            ...(team2PlayersQuery.data ?? []),
+          ].map((player) => [String(player.id), player.name ?? "Unknown"]),
+        );
+        const normalizedBatters = batterRows
+          ? batterRows.map((row) => ({
+          id: `manual-batter-${inningsKey}-${row.playerId}`,
+          inningsId,
+          playerId: row.playerId,
+          role: "batter",
+          name: nameById.get(String(row.playerId)) ?? "Unknown",
+          runs: row.runs,
+          balls: row.balls,
+          fours: row.fours,
+          sixes: row.sixes,
+          isOut: row.isOut,
+          strikeRate: row.strikeRate,
+          }))
+          : null;
+        const normalizedBowlers = bowlerRows
+          ? bowlerRows.map((row) => ({
+          id: `manual-bowler-${inningsKey}-${row.playerId}`,
+          inningsId,
+          playerId: row.playerId,
+          role: "bowler",
+          name: nameById.get(String(row.playerId)) ?? "Unknown",
+          ballsBowled: row.ballsBowled,
+          overs: row.overs,
+          runs: row.runs,
+          wickets: row.wickets,
+          economy: row.economy,
+          }))
+          : null;
+
+        return {
+          ...prev,
+          scorecards: {
+            batter: {
+              ...prev.scorecards.batter,
+              ...(normalizedBatters ? { [inningsKey]: normalizedBatters } : {}),
+            },
+            bowler: {
+              ...prev.scorecards.bowler,
+              ...(normalizedBowlers ? { [inningsKey]: normalizedBowlers } : {}),
+            },
+          },
+        };
+      });
+    },
+    [matchId, queryClient, team1PlayersQuery.data, team2PlayersQuery.data],
+  );
+
+  const syncInningsCache = useCallback(
+    ({ inningsId, inningsPatch }) => {
+      if (!inningsId || !inningsPatch) return;
+      queryClient.setQueryData(matchQueryKeys.detail(matchId), (prev) => {
+        if (!prev) return prev;
+        const updatedAll = prev.innings.all.map((inning) =>
+          String(inning.id) === String(inningsId)
+            ? { ...inning, ...inningsPatch }
+            : inning,
+        );
+        return {
+          ...prev,
+          innings: {
+            ...prev.innings,
+            all: updatedAll,
+            first:
+              String(prev.innings.first?.id) === String(inningsId)
+                ? { ...prev.innings.first, ...inningsPatch }
+                : prev.innings.first,
+            second:
+              String(prev.innings.second?.id) === String(inningsId)
+                ? { ...prev.innings.second, ...inningsPatch }
+                : prev.innings.second,
+            latest:
+              String(prev.innings.latest?.id) === String(inningsId)
+                ? { ...prev.innings.latest, ...inningsPatch }
+                : prev.innings.latest,
+          },
+        };
+      });
+    },
+    [matchId, queryClient],
+  );
+
   useMatchRealtime({
     matchId,
     onLiveScoreEvent: (event) =>
@@ -233,6 +336,60 @@ function Match() {
         syncCache(next);
         return next;
       }),
+    onPlayerStatsEvent: (row) => {
+      if (!row?.innings_id || !row?.role || !row?.player_id) return;
+      if (String(row.innings_id) !== String(liveState.inningsId)) return;
+      const inningsId = row.innings_id;
+      const role = row.role;
+      const playerId = row.player_id;
+      const rows =
+        role === "batter"
+          ? base?.scorecards?.batter?.[String(inningsId)] ?? []
+          : base?.scorecards?.bowler?.[String(inningsId)] ?? [];
+      const player =
+        [...(team1PlayersQuery.data ?? []), ...(team2PlayersQuery.data ?? [])].find(
+          (item) => String(item.id) === String(playerId),
+        );
+      const name = player?.name ?? "Unknown";
+      const nextRows = rows.filter((item) => String(item.playerId) !== String(playerId));
+      if (role === "batter") {
+        const runs = Number(row.runs) || 0;
+        const balls = Number(row.balls) || 0;
+        nextRows.push({
+          id: row.id ?? `rt-batter-${inningsId}-${playerId}`,
+          inningsId,
+          playerId,
+          role,
+          name,
+          runs,
+          balls,
+          fours: Number(row.fours) || 0,
+          sixes: Number(row.sixes) || 0,
+          isOut: Boolean(row.is_out),
+          strikeRate: balls > 0 ? Number(((runs / balls) * 100).toFixed(2)) : 0,
+        });
+        syncScorecardsCache({ inningsId, batterRows: nextRows });
+      } else if (role === "bowler") {
+        const ballsBowled = Number(row.balls_bowled) || 0;
+        const runsConceded = Number(row.runs_conceded) || 0;
+        nextRows.push({
+          id: row.id ?? `rt-bowler-${inningsId}-${playerId}`,
+          inningsId,
+          playerId,
+          role,
+          name,
+          ballsBowled,
+          overs: ballsToOversLabel(ballsBowled),
+          runs: runsConceded,
+          wickets: Number(row.wickets) || 0,
+          economy:
+            ballsBowled > 0
+              ? Number(((runsConceded * 6) / ballsBowled).toFixed(2))
+              : 0,
+        });
+        syncScorecardsCache({ inningsId, bowlerRows: nextRows });
+      }
+    },
   });
 
   const upsertPlayerStats = useCallback(
@@ -327,7 +484,7 @@ function Match() {
           queryKey: matchQueryKeys.detail(matchId),
           refetchType: "inactive",
         });
-      } catch (_e) {
+      } catch {
         setError("Failed to start match.");
       } finally {
         setIsSubmitting(false);
@@ -437,7 +594,7 @@ function Match() {
         } else if (isLegal && nextBalls % 6 === 0) {
           setShowNewBowlerModal(true);
         }
-      } catch (_e) {
+      } catch {
         setError("Scoring update failed.");
       } finally {
         setIsSubmitting(false);
@@ -477,7 +634,7 @@ function Match() {
         .eq("id", liveState.inningsId);
       setLiveState(next);
       syncCache(next);
-    } catch (_e) {
+    } catch {
       setError("Undo failed.");
     } finally {
       setIsSubmitting(false);
@@ -527,39 +684,49 @@ function Match() {
   const handleCustomUpdate = useCallback(
     async (form) => {
       if (!liveState.inningsId) return;
+      if (
+        form?.strikerId &&
+        form?.nonStrikerId &&
+        String(form.strikerId) === String(form.nonStrikerId)
+      ) {
+        setError("Striker and non-striker cannot be the same.");
+        return;
+      }
       setIsSubmitting(true);
       try {
-        await supabase
-          .from("innings")
-          .update({ runs: form.runs, wickets: form.wickets, balls: form.balls })
-          .eq("id", liveState.inningsId);
-        await supabase
-          .from("matches")
-          .update({
-            striker_id: form.strikerId || null,
-            non_striker_id: form.nonStrikerId || null,
-            current_bowler_id: form.currentBowlerId || null,
-          })
-          .eq("id", matchId);
+        const result = await saveManualMatchSync({
+          matchId,
+          inningsId: liveState.inningsId,
+          summary: form.summary,
+          batters: form.batters,
+          bowlers: form.bowlers,
+          strikerId: form.strikerId,
+          nonStrikerId: form.nonStrikerId,
+          currentBowlerId: form.currentBowlerId,
+        });
         const next = {
           ...liveState,
-          runs: form.runs,
-          wickets: form.wickets,
-          balls: form.balls,
-          strikerId: form.strikerId || null,
-          nonStrikerId: form.nonStrikerId || null,
-          currentBowlerId: form.currentBowlerId || null,
+          ...result.live,
         };
         setLiveState(next);
         syncCache(next);
+        syncInningsCache({
+          inningsId: liveState.inningsId,
+          inningsPatch: result.inningsPatch,
+        });
+        syncScorecardsCache({
+          inningsId: liveState.inningsId,
+          batterRows: result.normalizedScorecards.batter,
+          bowlerRows: result.normalizedScorecards.bowler,
+        });
         setShowCustomUpdate(false);
-      } catch (_e) {
+      } catch {
         setError("Custom update failed.");
       } finally {
         setIsSubmitting(false);
       }
     },
-    [liveState, matchId, syncCache],
+    [liveState, matchId, syncCache, syncInningsCache, syncScorecardsCache],
   );
 
   const handleCompleteInnings = useCallback(async () => {
@@ -630,12 +797,12 @@ function Match() {
       });
       setShowNextInningsModal(true);
       setError("Select batters and bowler to start 2nd innings.");
-    } catch (_e) {
+    } catch {
       setError("Unable to complete innings.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [base, liveState, matchId, queryClient, syncCache]);
+  }, [base, liveState, matchId, syncCache]);
 
   const handleStartNextInningsPlayers = useCallback(
     async ({ strikerId, nonStrikerId, bowlerId }) => {
@@ -681,7 +848,7 @@ function Match() {
           queryKey: matchQueryKeys.detail(matchId),
           refetchType: "inactive",
         });
-      } catch (_e) {
+      } catch {
         setError("Unable to start next innings with selected players.");
       } finally {
         setIsSubmitting(false);
@@ -710,7 +877,7 @@ function Match() {
         queryKey: matchQueryKeys.detail(matchId),
         refetchType: "inactive",
       });
-    } catch (_e) {
+    } catch {
       setError("Unable to complete match.");
     } finally {
       setIsSubmitting(false);
@@ -792,7 +959,7 @@ function Match() {
                 </div>
               </section>
 
-              {!isSessionLoading && session ? (
+              {!isSessionLoading && isAdminUser ? (
                 <>
                   {liveState.status === "upcoming" ? (
                     <section className="surface-card">
@@ -813,6 +980,7 @@ function Match() {
                       disabled={!liveState.inningsId}
                       isSubmitting={isSubmitting}
                       status={liveState.status}
+                      canCustomUpdate={isAdminUser}
                       onRun={(runs) => scoreBall({ runs })}
                       onExtra={(type) => {
                         setPendingExtraType(type);
@@ -882,8 +1050,13 @@ function Match() {
               <CustomUpdateModal
                 open={showCustomUpdate}
                 current={liveState}
+                battingPlayers={battingPlayers}
+                bowlingPlayers={bowlingPlayers}
+                batterRows={batterFor(liveState.inningsId)}
+                bowlerRows={bowlerFor(liveState.inningsId)}
                 onClose={() => setShowCustomUpdate(false)}
                 onConfirm={handleCustomUpdate}
+                isSubmitting={isSubmitting}
               />
               <NextInningsSetupModal
                 open={showNextInningsModal}

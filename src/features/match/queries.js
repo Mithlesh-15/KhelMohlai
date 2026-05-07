@@ -56,6 +56,7 @@ function mapScorecardRows(rows, type, playerNameMap = new Map()) {
         balls,
         fours: pickNumber(row.fours ?? row.four ?? row.boundary_4s),
         sixes: pickNumber(row.sixes ?? row.six ?? row.boundary_6s),
+        isOut: Boolean(row.is_out ?? row.out ?? false),
         strikeRate: balls > 0 ? Number(((runs / balls) * 100).toFixed(2)) : 0,
       };
     }
@@ -74,6 +75,7 @@ function mapScorecardRows(rows, type, playerNameMap = new Map()) {
       playerId: row.player_id ?? null,
       role: row.role ?? "bowler",
       name,
+      ballsBowled: balls,
       overs,
       runs: runsConceded,
       wickets: pickNumber(row.wickets),
