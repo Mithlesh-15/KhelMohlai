@@ -9,8 +9,6 @@ function BatterTable({ rows }) {
             <th className="px-4 py-3 font-semibold">Batter</th>
             <th className="px-4 py-3 font-semibold">R</th>
             <th className="px-4 py-3 font-semibold">B</th>
-            <th className="px-4 py-3 font-semibold">4s</th>
-            <th className="px-4 py-3 font-semibold">6s</th>
             <th className="px-4 py-3 font-semibold">SR</th>
           </tr>
         </thead>
@@ -21,14 +19,12 @@ function BatterTable({ rows }) {
                 <td className="px-4 py-3 font-medium">{row.name}</td>
                 <td className="px-4 py-3">{row.runs}</td>
                 <td className="px-4 py-3">{row.balls}</td>
-                <td className="px-4 py-3">{row.fours}</td>
-                <td className="px-4 py-3">{row.sixes}</td>
                 <td className="px-4 py-3">{row.strikeRate}</td>
               </tr>
             ))
           ) : (
             <tr>
-              <td className="px-4 py-4 text-sm" colSpan={6} style={{ color: "var(--text-secondary)" }}>
+              <td className="px-4 py-4 text-sm" colSpan={4} style={{ color: "var(--text-secondary)" }}>
                 No batting data yet.
               </td>
             </tr>

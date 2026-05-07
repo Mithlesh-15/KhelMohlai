@@ -2,6 +2,7 @@ import { supabase } from "../../utils/supabase";
 
 export const matchQueryKeys = {
   detail: (matchId) => ["match", "detail", matchId],
+  teamPlayers: (teamId) => ["team", "players", teamId],
 };
 
 const FALLBACK_TEAM = {
@@ -36,10 +37,8 @@ function formatBall(ball) {
   let label = String(runs);
   if (isWicket) {
     label = "W";
-  } else if (extraType === "WD") {
-    label = "WD";
-  } else if (extraType === "NB") {
-    label = "NB";
+  } else if (extraType) {
+    label = extraType;
   }
 
   return {
@@ -51,14 +50,19 @@ function formatBall(ball) {
   };
 }
 
-function mapScorecardRows(rows, type) {
+function mapScorecardRows(rows, type, playerNameMap = new Map()) {
   if (!Array.isArray(rows)) {
     return [];
   }
 
   return rows.map((row) => {
     const name =
-      row.player_name ?? row.name ?? row.batter_name ?? row.bowler_name ?? "Unknown";
+      row.player_name ??
+      row.name ??
+      row.batter_name ??
+      row.bowler_name ??
+      playerNameMap.get(String(row.player_id ?? "")) ??
+      "Unknown";
 
     if (type === "batter") {
       const runs = pickNumber(row.runs);
@@ -66,6 +70,8 @@ function mapScorecardRows(rows, type) {
       return {
         id: row.id ?? `${name}-${Math.random()}`,
         inningsId: row.innings_id ?? row.inning_id ?? null,
+        playerId: row.player_id ?? null,
+        role: row.role ?? "batter",
         name,
         runs,
         balls,
@@ -86,6 +92,8 @@ function mapScorecardRows(rows, type) {
     return {
       id: row.id ?? `${name}-${Math.random()}`,
       inningsId: row.innings_id ?? row.inning_id ?? null,
+      playerId: row.player_id ?? null,
+      role: row.role ?? "bowler",
       name,
       overs,
       runs: runsConceded,
@@ -93,6 +101,24 @@ function mapScorecardRows(rows, type) {
       economy,
     };
   });
+}
+
+export async function fetchTeamPlayers(teamId) {
+  if (!teamId) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("players")
+    .select("id, team_id, name")
+    .eq("team_id", teamId)
+    .order("name", { ascending: true });
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
 }
 
 export async function fetchMatchDetails(matchId) {
@@ -107,34 +133,34 @@ export async function fetchMatchDetails(matchId) {
   }
 
   const teamIds = [match.team1_id, match.team2_id].filter(Boolean);
-  const [{ data: teams, error: teamsError }, { data: innings, error: inningsError }, { data: balls, error: ballsError }, { data: batterRows, error: batterError }, { data: bowlerRows, error: bowlerError }] = await Promise.all([
+  const [
+    { data: teams, error: teamsError },
+    { data: innings, error: inningsError },
+    { data: balls, error: ballsError },
+    { data: stats, error: statsError },
+    { data: players, error: playersError },
+  ] = await Promise.all([
     supabase.from("teams").select("id, name, logo").in("id", teamIds),
     supabase.from("innings").select("*").eq("match_id", matchId).order("id", { ascending: true }),
     supabase
       .from("balls")
-      .select("id, runs, is_wicket, extra_type, innings_id")
+      .select("id, runs, is_wicket, extra_type, innings_id, over, ball_number, batsman_id, bowler_id")
       .eq("match_id", matchId)
       .order("id", { ascending: false })
       .limit(12),
-    supabase.from("player_stats").select("*").eq("match_id", matchId),
-    supabase.from("player_stats").select("*").eq("match_id", matchId),
+    supabase.from("player_stats").select("* ").eq("match_id", matchId),
+    supabase.from("players").select("id, name, team_id").in("team_id", teamIds),
   ]);
 
-  if (teamsError) {
-    throw teamsError;
-  }
-  if (inningsError) {
-    throw inningsError;
-  }
-  if (ballsError) {
-    throw ballsError;
-  }
-  if (batterError) {
-    throw batterError;
-  }
-  if (bowlerError) {
-    throw bowlerError;
-  }
+  if (teamsError) throw teamsError;
+  if (inningsError) throw inningsError;
+  if (ballsError) throw ballsError;
+  if (statsError) throw statsError;
+  if (playersError) throw playersError;
+
+  const playerNameMap = new Map(
+    (players ?? []).map((player) => [String(player.id), player.name ?? "Unknown"]),
+  );
 
   const teamsMap = new Map((teams ?? []).map((team) => [team.id, {
     id: team.id,
@@ -156,35 +182,17 @@ export async function fetchMatchDetails(matchId) {
     };
   });
 
-  const inningsById = Object.fromEntries(
-    normalizedInnings.map((item) => [String(item.id), item]),
-  );
-  const scorecardsByInnings = {
-    batter: {},
-    bowler: {},
-  };
-
-  for (const row of mapScorecardRows(batterRows, "batter")) {
-    const inningsId = row.inningsId;
-    if (!inningsId) {
-      continue;
-    }
-    const key = String(inningsId);
-    if (!scorecardsByInnings.batter[key]) {
-      scorecardsByInnings.batter[key] = [];
-    }
+  const scorecardsByInnings = { batter: {}, bowler: {} };
+  for (const row of mapScorecardRows(stats, "batter", playerNameMap)) {
+    if (row.role !== "batter" || !row.inningsId) continue;
+    const key = String(row.inningsId);
+    if (!scorecardsByInnings.batter[key]) scorecardsByInnings.batter[key] = [];
     scorecardsByInnings.batter[key].push(row);
   }
-
-  for (const row of mapScorecardRows(bowlerRows, "bowler")) {
-    const inningsId = row.inningsId;
-    if (!inningsId) {
-      continue;
-    }
-    const key = String(inningsId);
-    if (!scorecardsByInnings.bowler[key]) {
-      scorecardsByInnings.bowler[key] = [];
-    }
+  for (const row of mapScorecardRows(stats, "bowler", playerNameMap)) {
+    if (row.role !== "bowler" || !row.inningsId) continue;
+    const key = String(row.inningsId);
+    if (!scorecardsByInnings.bowler[key]) scorecardsByInnings.bowler[key] = [];
     scorecardsByInnings.bowler[key].push(row);
   }
 
@@ -192,12 +200,10 @@ export async function fetchMatchDetails(matchId) {
   const secondInnings = normalizedInnings.find((item) => item.inningsNumber === 2) ?? normalizedInnings[1] ?? null;
   const latestInnings = normalizedInnings[normalizedInnings.length - 1] ?? null;
 
-  const liveBalls = (balls ?? []).slice().reverse().map(formatBall);
-
   return {
     match: {
       ...match,
-      status: String(match.status ?? "live").toLowerCase(),
+      status: String(match.status ?? "upcoming").toLowerCase(),
       team1: teamsMap.get(match.team1_id) ?? FALLBACK_TEAM,
       team2: teamsMap.get(match.team2_id) ?? FALLBACK_TEAM,
     },
@@ -206,26 +212,25 @@ export async function fetchMatchDetails(matchId) {
       first: firstInnings,
       second: secondInnings,
       latest: latestInnings,
-      byId: inningsById,
     },
-    scorecards: {
-      batter: scorecardsByInnings.batter,
-      bowler: scorecardsByInnings.bowler,
-    },
+    scorecards: scorecardsByInnings,
     live: {
-      inningsId: latestInnings?.id ?? null,
+      inningsId: match.current_innings ?? latestInnings?.id ?? null,
       runs: pickNumber(latestInnings?.runs),
       wickets: pickNumber(latestInnings?.wickets),
       balls: pickNumber(latestInnings?.balls),
-      lastBalls: liveBalls,
+      battingTeamId: latestInnings?.batting_team_id ?? null,
+      bowlingTeamId: latestInnings?.bowling_team_id ?? null,
+      strikerId: match.striker_id ?? null,
+      nonStrikerId: match.non_striker_id ?? null,
+      currentBowlerId: match.current_bowler_id ?? null,
+      lastBalls: (balls ?? []).slice().reverse().map(formatBall),
     },
   };
 }
 
 export async function fetchSession() {
   const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    throw error;
-  }
+  if (error) throw error;
   return data.session;
 }

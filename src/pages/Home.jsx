@@ -59,8 +59,10 @@ function Home() {
     queryFn: fetchTeams,
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 7 * 24 * 60 * 60 * 1000,
+    refetchInterval: 24 * 60 * 60 * 1000,
     retry: 2,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const matchesQuery = useQuery({
@@ -69,7 +71,9 @@ function Home() {
     staleTime: 10 * 60 * 1000,
     gcTime: 2 * 24 * 60 * 60 * 1000,
     retry: 2,
+    refetchInterval: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnMount: false,
   });
 
   const mappedMatches = useMemo(

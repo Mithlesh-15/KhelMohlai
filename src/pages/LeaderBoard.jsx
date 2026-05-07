@@ -46,6 +46,7 @@ function LeaderBoard() {
     staleTime: 20 * 60 * 1000,
     gcTime: 5 * 24 * 60 * 60 * 1000,
     retry: 2,
+    refetchInterval: 20 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: false,
