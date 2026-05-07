@@ -4,7 +4,6 @@ import { useParams } from "react-router-dom";
 import NavBar from "../components/NavBar";
 import { supabase } from "../utils/supabase";
 import AdminPanel from "../features/match/components/AdminPanel";
-import LastBalls from "../features/match/components/LastBalls";
 import BatterTable from "../features/match/components/BatterTable";
 import BowlerTable from "../features/match/components/BowlerTable";
 import StartMatchModal from "../features/match/components/StartMatchModal";
@@ -113,19 +112,18 @@ function Match() {
     nonStrikerId: null,
     currentBowlerId: null,
     status: "upcoming",
-    lastBalls: [],
   });
 
   const matchQuery = useQuery({
     queryKey: matchQueryKeys.detail(matchId),
     queryFn: () => fetchMatchDetails(matchId),
     enabled: Boolean(matchId),
-    staleTime: 3 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
-    refetchInterval: 3 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
   });
 
   useEffect(() => {
@@ -235,13 +233,6 @@ function Match() {
         syncCache(next);
         return next;
       }),
-    onBallEvent: (ball) =>
-      setLiveState((prev) => {
-        const lastBalls = [...(prev.lastBalls ?? []), ball].slice(-12);
-        const next = { ...prev, lastBalls };
-        syncCache(next);
-        return next;
-      }),
   });
 
   const upsertPlayerStats = useCallback(
@@ -328,7 +319,6 @@ function Match() {
           nonStrikerId: payload.nonStrikerId,
           currentBowlerId: payload.bowlerId,
           status: "live",
-          lastBalls: [],
         };
         setLiveState(next);
         syncCache(next);
@@ -430,13 +420,6 @@ function Match() {
           },
         });
 
-        const ball = {
-          id: `local-${Date.now()}`,
-          runs,
-          isWicket,
-          extraType,
-          label: isWicket ? "W" : extraType || String(runs),
-        };
         const next = {
           ...liveState,
           runs: nextRuns,
@@ -444,7 +427,6 @@ function Match() {
           balls: nextBalls,
           strikerId,
           nonStrikerId,
-          lastBalls: [...liveState.lastBalls, ball].slice(-12),
         };
         setLiveState(next);
         syncCache(next);
@@ -486,7 +468,6 @@ function Match() {
         runs: Math.max(0, liveState.runs - Number(lastBall.runs || 0)),
         wickets: Math.max(0, liveState.wickets - (lastBall.is_wicket ? 1 : 0)),
         balls: Math.max(0, liveState.balls - (legal ? 1 : 0)),
-        lastBalls: liveState.lastBalls.slice(0, -1),
       };
 
       await supabase.from("balls").delete().eq("id", lastBall.id);
@@ -691,7 +672,6 @@ function Match() {
           nonStrikerId,
           currentBowlerId: bowlerId,
           status: "live",
-          lastBalls: [],
         };
         setLiveState(next);
         syncCache(next);
@@ -811,8 +791,6 @@ function Match() {
                   />
                 </div>
               </section>
-
-              <LastBalls balls={liveState.lastBalls} />
 
               {!isSessionLoading && session ? (
                 <>

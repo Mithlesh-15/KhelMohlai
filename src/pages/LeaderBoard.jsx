@@ -43,10 +43,10 @@ function LeaderBoard() {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: leaderboardQueryKeys.table,
     queryFn: fetchLeaderboardTable,
-    staleTime: 20 * 60 * 1000,
+    staleTime: 30 * 60 * 1000,
     gcTime: 5 * 24 * 60 * 60 * 1000,
     retry: 2,
-    refetchInterval: 20 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     refetchOnMount: false,

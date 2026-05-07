@@ -29,27 +29,6 @@ function pickInningsNumber(innings, index) {
   return index + 1;
 }
 
-function formatBall(ball) {
-  const runs = pickNumber(ball?.runs, 0);
-  const isWicket = Boolean(ball?.is_wicket ?? ball?.isWicket);
-  const extraType = String(ball?.extra_type ?? ball?.extraType ?? "").toUpperCase();
-
-  let label = String(runs);
-  if (isWicket) {
-    label = "W";
-  } else if (extraType) {
-    label = extraType;
-  }
-
-  return {
-    id: ball?.id ?? `ball-${Math.random()}`,
-    runs,
-    isWicket,
-    extraType,
-    label,
-  };
-}
-
 function mapScorecardRows(rows, type, playerNameMap = new Map()) {
   if (!Array.isArray(rows)) {
     return [];
@@ -136,25 +115,17 @@ export async function fetchMatchDetails(matchId) {
   const [
     { data: teams, error: teamsError },
     { data: innings, error: inningsError },
-    { data: balls, error: ballsError },
     { data: stats, error: statsError },
     { data: players, error: playersError },
   ] = await Promise.all([
     supabase.from("teams").select("id, name, logo").in("id", teamIds),
     supabase.from("innings").select("*").eq("match_id", matchId).order("id", { ascending: true }),
-    supabase
-      .from("balls")
-      .select("id, runs, is_wicket, extra_type, innings_id, over, ball_number, batsman_id, bowler_id")
-      .eq("match_id", matchId)
-      .order("id", { ascending: false })
-      .limit(12),
     supabase.from("player_stats").select("* ").eq("match_id", matchId),
     supabase.from("players").select("id, name, team_id").in("team_id", teamIds),
   ]);
 
   if (teamsError) throw teamsError;
   if (inningsError) throw inningsError;
-  if (ballsError) throw ballsError;
   if (statsError) throw statsError;
   if (playersError) throw playersError;
 
@@ -224,7 +195,6 @@ export async function fetchMatchDetails(matchId) {
       strikerId: match.striker_id ?? null,
       nonStrikerId: match.non_striker_id ?? null,
       currentBowlerId: match.current_bowler_id ?? null,
-      lastBalls: (balls ?? []).slice().reverse().map(formatBall),
     },
   };
 }
