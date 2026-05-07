@@ -1,131 +1,97 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
-import NavBar from '../components/NavBar';
-import { supabase } from '../utils/supabase';
-
-const FALLBACK_TEAM = {
-  name: 'TBD',
-  logo: '',
-};
-
-const SCORE_ACTIONS = [
-  { label: '0', runs: 0, extraType: null, isWicket: false, tone: 'default' },
-  { label: '1', runs: 1, extraType: null, isWicket: false, tone: 'default' },
-  { label: '2', runs: 2, extraType: null, isWicket: false, tone: 'default' },
-  { label: '3', runs: 3, extraType: null, isWicket: false, tone: 'default' },
-  { label: '4', runs: 4, extraType: null, isWicket: false, tone: 'four' },
-  { label: '6', runs: 6, extraType: null, isWicket: false, tone: 'six' },
-  { label: 'W', runs: 0, extraType: null, isWicket: true, tone: 'wicket' },
-  { label: 'WD', runs: 1, extraType: 'WD', isWicket: false, tone: 'default' },
-];
-
-const BUTTON_STYLES = {
-  default: {
-    backgroundColor: '#f8fafc',
-    borderColor: 'var(--border-soft)',
-    color: 'var(--text-primary)',
-  },
-  four: {
-    backgroundColor: 'var(--upcoming-bg)',
-    borderColor: 'var(--upcoming-border)',
-    color: 'var(--upcoming-text)',
-  },
-  six: {
-    backgroundColor: 'var(--completed-bg)',
-    borderColor: 'var(--completed-border)',
-    color: 'var(--completed-text)',
-  },
-  wicket: {
-    backgroundColor: 'var(--live-bg)',
-    borderColor: 'var(--live-border)',
-    color: 'var(--danger-text)',
-  },
-};
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useParams } from "react-router-dom";
+import NavBar from "../components/NavBar";
+import { supabase } from "../utils/supabase";
+import AdminPanel from "../features/match/components/AdminPanel";
+import LastBalls from "../features/match/components/LastBalls";
+import BatterTable from "../features/match/components/BatterTable";
+import BowlerTable from "../features/match/components/BowlerTable";
+import {
+  fetchMatchDetails,
+  fetchSession,
+  matchQueryKeys,
+} from "../features/match/queries";
+import { useMatchRealtime } from "../features/match/useMatchRealtime";
 
 function formatOvers(totalBalls) {
-  const safeBalls = Number.isFinite(totalBalls) ? Math.max(totalBalls, 0) : 0;
-  return `${Math.floor(safeBalls / 6)}.${safeBalls % 6}`;
+  const balls = Number(totalBalls) || 0;
+  return `${Math.floor(balls / 6)}.${balls % 6}`;
 }
 
-// function formatBallLabel(ball) {
-//   if (!ball) {
-//     return '-';
-//   }
-
-//   if (ball.is_wicket) {
-//     return 'W';
-//   }
-
-//   if (ball.extra_type === 'WD') {
-//     return 'WD';
-//   }
-
-//   return String(ball.runs ?? 0);
-// }
-
-function TeamBadge({ team, align = 'left' }) {
-  const isRightAligned = align === 'right';
+function TeamCell({ team, align = "left", score, note }) {
+  const isRight = align === "right";
 
   return (
     <div
-      className={[
-        'flex min-w-0 flex-1 items-center gap-3',
-        isRightAligned ? 'flex-row-reverse text-right' : 'text-left',
-      ].join(' ')}
+      className={`flex min-w-0 flex-1 items-center gap-3 ${isRight ? "flex-row-reverse text-right" : "text-left"}`}
     >
       <div
-        className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-slate-50 shadow-sm sm:h-16 sm:w-16"
-        style={{ borderColor: 'var(--border-soft)' }}
+        className="h-12 w-12 overflow-hidden rounded-2xl border bg-slate-50"
+        style={{ borderColor: "var(--border-soft)" }}
       >
-        {team.logo ? (
-          <img src={team.logo} alt={`${team.name} logo`} className="h-full w-full object-cover" />
+        {team?.logo ? (
+          <img
+            src={team.logo}
+            alt={`${team?.name ?? "Team"} logo`}
+            className="h-full w-full object-cover"
+          />
         ) : (
-          <span className="text-base font-semibold uppercase" style={{ color: 'var(--text-secondary)' }}>
-            {team.name.slice(0, 1)}
-          </span>
+          <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-slate-500">
+            {String(team?.name ?? "T").slice(0, 1)}
+          </div>
         )}
       </div>
-
       <div className="min-w-0">
-        <p className="truncate text-base font-semibold sm:text-lg" style={{ color: 'var(--text-primary)' }}>
-          {team.name}
+        <p className="truncate text-sm font-semibold sm:text-base">
+          {team?.name ?? "TBD"}
         </p>
+        <p className="truncate text-xs text-slate-500">{score || "-"}</p>
+        <p className="truncate text-xs text-slate-500">{note}</p>
       </div>
     </div>
   );
 }
 
-function ScoringButton({ action, disabled, onClick }) {
+function InningsSection({ title, innings, batterRows, bowlerRows }) {
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={() => onClick(action)}
-      className="flex h-14 items-center justify-center rounded-2xl border text-base font-semibold shadow-sm transition duration-200 hover:-translate-y-0.5 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
-      style={BUTTON_STYLES[action.tone]}
-    >
-      {action.label}
-    </button>
+    <section className="surface-card">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-lg font-semibold">{title}</h3>
+        <span className="text-sm text-slate-500">
+          {innings
+            ? `${innings.runs}/${innings.wickets} (${innings.oversLabel})`
+            : "Yet to Start"}
+        </span>
+      </div>
+      <div className="space-y-4">
+        <div>
+          <h4 className="mb-2 text-sm font-semibold text-slate-700">Batters</h4>
+          <BatterTable rows={batterRows} />
+        </div>
+        <div>
+          <h4 className="mb-2 text-sm font-semibold text-slate-700">Bowlers</h4>
+          <BowlerTable rows={bowlerRows} />
+        </div>
+      </div>
+    </section>
   );
 }
 
-function LoadingPanel() {
+function MatchSkeleton() {
   return (
-    <div className="surface-card animate-pulse">
-      <div className="flex items-center justify-between gap-4">
-        {[0, 1].map((item) => (
-          <div key={item} className="flex min-w-0 flex-1 items-center gap-3">
-            <div className="h-14 w-14 rounded-2xl" style={{ backgroundColor: 'var(--skeleton)' }} />
-            <div className="flex-1">
-              <div className="h-4 rounded-full" style={{ backgroundColor: 'var(--skeleton)' }} />
-            </div>
-          </div>
-        ))}
+    <div className="space-y-4">
+      <div className="surface-card animate-pulse">
+        <div
+          className="h-24 rounded-2xl"
+          style={{ backgroundColor: "var(--skeleton)" }}
+        />
       </div>
-
-      <div className="mt-8 space-y-3 text-center">
-        <div className="mx-auto h-10 w-32 rounded-full" style={{ backgroundColor: 'var(--skeleton)' }} />
-        <div className="mx-auto h-4 w-20 rounded-full" style={{ backgroundColor: 'var(--skeleton)' }} />
+      <div className="surface-card animate-pulse">
+        <div
+          className="h-40 rounded-2xl"
+          style={{ backgroundColor: "var(--skeleton)" }}
+        />
       </div>
     </div>
   );
@@ -133,67 +99,40 @@ function LoadingPanel() {
 
 function Match() {
   const { matchId } = useParams();
+  const queryClient = useQueryClient();
   const [session, setSession] = useState(null);
-  const [matchDetails, setMatchDetails] = useState(null);
-  const [innings, setInnings] = useState(null);
-  const [balls, setBalls] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isSessionLoading, setIsSessionLoading] = useState(true);
+  const [liveState, setLiveState] = useState({
+    inningsId: null,
+    runs: 0,
+    wickets: 0,
+    balls: 0,
+    lastBalls: [],
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [actionError, setActionError] = useState("");
 
-  const fetchLatestInnings = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('innings')
-      .select('id, match_id, runs, wickets, balls')
-      .eq('match_id', matchId)
-      .order('id', { ascending: false })
-      .limit(1);
-
-    if (error) {
-      throw error;
-    }
-
-    const latestInnings = data?.[0] || {
-      id: null,
-      match_id: matchId,
-      runs: 0,
-      wickets: 0,
-      balls: 0,
-    };
-
-    setInnings({
-      id: latestInnings.id,
-      match_id: latestInnings.match_id,
-      runs: latestInnings.runs || 0,
-      wickets: latestInnings.wickets || 0,
-      balls: latestInnings.balls || 0,
-    });
-  }, [matchId]);
-
-  const fetchRecentBalls = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('balls')
-      .select('id, match_id, innings_id, runs, is_wicket, extra_type')
-      .eq('match_id', matchId)
-      .order('id', { ascending: false })
-      .limit(6);
-
-    if (error) {
-      throw error;
-    }
-
-    setBalls((data || []).reverse());
-  }, [matchId]);
+  const matchQuery = useQuery({
+    queryKey: matchQueryKeys.detail(matchId),
+    queryFn: () => fetchMatchDetails(matchId),
+    enabled: Boolean(matchId),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     let isMounted = true;
 
     const loadSession = async () => {
-      const { data } = await supabase.auth.getSession();
-
-      if (isMounted) {
-        setSession(data.session);
+      const activeSession = await fetchSession();
+      if (!isMounted) {
+        return;
       }
+      setSession(activeSession);
+      setIsSessionLoading(false);
     };
 
     loadSession();
@@ -201,9 +140,11 @@ function Match() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (isMounted) {
-        setSession(nextSession);
+      if (!isMounted) {
+        return;
       }
+      setSession(nextSession);
+      setIsSessionLoading(false);
     });
 
     return () => {
@@ -213,356 +154,337 @@ function Match() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    const fetchInitialData = async () => {
-      setIsLoading(true);
-      setErrorMessage('');
-
-      try {
-        const { data: matchRow, error: matchError } = await supabase
-          .from('matches')
-          .select('id, team1_id, team2_id, status')
-          .eq('id', matchId)
-          .single();
-
-        if (matchError) {
-          throw matchError;
-        }
-
-        const teamIds = [matchRow.team1_id, matchRow.team2_id].filter(Boolean);
-        const { data: teamRows, error: teamsError } = await supabase
-          .from('teams')
-          .select('id, name, logo')
-          .in('id', teamIds);
-
-        if (teamsError) {
-          throw teamsError;
-        }
-
-        const teamMap = (teamRows || []).reduce((accumulator, team) => {
-          accumulator[team.id] = {
-            name: team.name || FALLBACK_TEAM.name,
-            logo: team.logo || FALLBACK_TEAM.logo,
-          };
-          return accumulator;
-        }, {});
-
-        if (isMounted) {
-          setMatchDetails({
-            id: matchRow.id,
-            status: matchRow.status?.toLowerCase() || 'live',
-            team1: teamMap[matchRow.team1_id] || FALLBACK_TEAM,
-            team2: teamMap[matchRow.team2_id] || FALLBACK_TEAM,
-          });
-        }
-
-        await Promise.all([fetchLatestInnings(), fetchRecentBalls()]);
-      } catch (error) {
-        console.error('Failed to fetch match detail data', error);
-
-        if (isMounted) {
-          setErrorMessage('Unable to load this match right now. Please try again shortly.');
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    fetchInitialData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [fetchLatestInnings, fetchRecentBalls, matchId]);
-
-  useEffect(() => {
-    if (!matchId) {
-      return undefined;
-    }
-
-    const inningsChannel = supabase
-      .channel(`match-innings-${matchId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'innings',
-          filter: `match_id=eq.${matchId}`,
-        },
-        async (payload) => {
-          console.log('innings update payload', payload);
-
-          try {
-            await fetchLatestInnings();
-          } catch (error) {
-            console.error('Failed to refresh innings from realtime update', error);
-          }
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error(`Innings realtime subscription failed for match ${matchId}`);
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(inningsChannel);
-    };
-  }, [fetchLatestInnings, matchId]);
-
-  useEffect(() => {
-    if (!matchId) {
-      return undefined;
-    }
-
-    const ballsChannel = supabase
-      .channel(`match-balls-${matchId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'balls',
-          filter: `match_id=eq.${matchId}`,
-        },
-        async (payload) => {
-          console.log('ball insert payload', payload);
-
-          const newBall = payload.new;
-
-          if (newBall) {
-            setBalls((currentBalls) => {
-              const nextBalls = [...currentBalls, newBall];
-              return nextBalls.slice(-6);
-            });
-          }
-
-          try {
-            await fetchRecentBalls();
-          } catch (error) {
-            console.error('Failed to refresh balls from realtime insert', error);
-          }
-        },
-      )
-      .subscribe((status) => {
-        if (status === 'CHANNEL_ERROR') {
-          console.error(`Balls realtime subscription failed for match ${matchId}`);
-        }
-      });
-
-    return () => {
-      supabase.removeChannel(ballsChannel);
-    };
-  }, [fetchRecentBalls, matchId]);
-
-  const ensureInningsRecord = async () => {
-    if (innings?.id) {
-      return innings.id;
-    }
-
-    const { data, error } = await supabase
-      .from('innings')
-      .insert({
-        match_id: matchId,
-        runs: innings?.runs || 0,
-        wickets: innings?.wickets || 0,
-        balls: innings?.balls || 0,
-      })
-      .select('id, match_id, runs, wickets, balls')
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    setInnings({
-      id: data.id,
-      match_id: data.match_id,
-      runs: data.runs || 0,
-      wickets: data.wickets || 0,
-      balls: data.balls || 0,
-    });
-
-    return data.id;
-  };
-
-  const handleScoreAction = async (action) => {
-    if (!session || !innings || isSubmitting) {
+    if (!matchQuery.data?.live) {
       return;
     }
 
-    setIsSubmitting(true);
-    setErrorMessage('');
+    setLiveState(matchQuery.data.live);
+  }, [matchQuery.data]);
 
-    const previousInnings = innings;
-    const previousBalls = balls;
-    const nextInnings = {
-      ...innings,
-      runs: innings.runs + action.runs,
-      wickets: innings.wickets + (action.isWicket ? 1 : 0),
-      balls: innings.balls + (action.extraType === 'WD' ? 0 : 1),
-    };
-
-    const optimisticBall = {
-      id: `temp-${Date.now()}`,
-      match_id: matchId,
-      innings_id: innings.id,
-      runs: action.runs,
-      is_wicket: action.isWicket,
-      extra_type: action.extraType,
-    };
-
-    setInnings(nextInnings);
-    setBalls((currentBalls) => [...currentBalls, optimisticBall].slice(-6));
-
-    try {
-      const inningsId = await ensureInningsRecord();
-
-      const { error: ballError } = await supabase.from('balls').insert({
-        match_id: matchId,
-        innings_id: inningsId,
-        runs: action.runs,
-        is_wicket: action.isWicket,
-        extra_type: action.extraType,
+  const syncLiveToCache = useCallback(
+    (nextLive) => {
+      queryClient.setQueryData(matchQueryKeys.detail(matchId), (prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return {
+          ...prev,
+          live: {
+            ...prev.live,
+            ...nextLive,
+          },
+        };
       });
+    },
+    [matchId, queryClient],
+  );
 
-      if (ballError) {
-        throw ballError;
-      }
+  const onLiveScoreEvent = useCallback(
+    (event) => {
+      setLiveState((prev) => {
+        const next = { ...prev, ...event };
+        syncLiveToCache(next);
+        return next;
+      });
+    },
+    [syncLiveToCache],
+  );
 
-      const { error: updateError } = await supabase
-        .from('innings')
-        .update({
-          runs: nextInnings.runs,
-          wickets: nextInnings.wickets,
-          balls: nextInnings.balls,
-        })
-        .eq('id', inningsId);
+  const onBallEvent = useCallback(
+    (ball) => {
+      setLiveState((prev) => {
+        const lastBalls = [...(prev.lastBalls ?? []), ball].slice(-12);
+        const next = { ...prev, lastBalls };
+        syncLiveToCache(next);
+        return next;
+      });
+    },
+    [syncLiveToCache],
+  );
 
-      if (updateError) {
-        throw updateError;
-      }
+  useMatchRealtime({
+    matchId,
+    onLiveScoreEvent,
+    onBallEvent,
+  });
 
-      setInnings((currentInnings) => ({
-        ...(currentInnings || nextInnings),
-        id: inningsId,
-        match_id: matchId,
-        runs: nextInnings.runs,
-        wickets: nextInnings.wickets,
-        balls: nextInnings.balls,
-      }));
-    } catch (error) {
-      console.error('Score update failed', error);
-      setInnings(previousInnings);
-      setBalls(previousBalls);
-      setErrorMessage('Score update failed. Please try again.');
-    } finally {
-      setIsSubmitting(false);
+  const base = matchQuery.data;
+  const latestInnings = useMemo(() => {
+    if (!base?.innings?.all?.length) {
+      return null;
     }
-  };
 
-  const scoreLabel = innings ? `${innings.runs}/${innings.wickets}` : '0/0';
-  const oversLabel = innings ? formatOvers(innings.balls) : '0.0';
+    return (
+      base.innings.all.find((inning) => inning.id === liveState.inningsId) ||
+      base.innings.latest
+    );
+  }, [base, liveState.inningsId]);
+
+  const firstScore = base?.innings?.first
+    ? `${base.innings.first.runs}/${base.innings.first.wickets}`
+    : "Yet to Bat";
+  const secondScore = base?.innings?.second
+    ? `${base.innings.second.runs}/${base.innings.second.wickets}`
+    : "Yet to Bat";
+
+  const team1IsBatting =
+    latestInnings?.batting_team_id === base?.match?.team1_id;
+  const team2IsBatting =
+    latestInnings?.batting_team_id === base?.match?.team2_id;
+
+  const team1Note = team1IsBatting
+    ? "Batting"
+    : base?.innings?.first
+      ? firstScore
+      : "Yet to Bat";
+  const team2Note = team2IsBatting
+    ? "Batting"
+    : base?.innings?.second
+      ? secondScore
+      : "Yet to Bat";
+
+  const handleAdminAction = useCallback(
+    async (action) => {
+      if (!session || !base) {
+        return;
+      }
+
+      setActionError("");
+      setIsSubmitting(true);
+
+      const currentInnings = latestInnings ?? base.innings.latest;
+      if (!currentInnings?.id) {
+        setActionError("No innings record found for scoring.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      const previous = {
+        ...liveState,
+        lastBalls: [...(liveState.lastBalls ?? [])],
+      };
+
+      try {
+        if (action.undo) {
+          const { data: lastBall, error: lastBallError } = await supabase
+            .from("balls")
+            .select("id, runs, is_wicket, extra_type")
+            .eq("match_id", matchId)
+            .eq("innings_id", currentInnings.id)
+            .order("id", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (lastBallError) {
+            throw lastBallError;
+          }
+
+          if (!lastBall) {
+            setIsSubmitting(false);
+            return;
+          }
+
+          const lastExtra = String(lastBall.extra_type ?? "").toUpperCase();
+          const reduceBallCount =
+            lastExtra === "WD" || lastExtra === "NB" ? 0 : 1;
+
+          setLiveState((prev) => ({
+            ...prev,
+            runs: Math.max(0, (prev.runs ?? 0) - (Number(lastBall.runs) || 0)),
+            wickets: Math.max(
+              0,
+              (prev.wickets ?? 0) - (lastBall.is_wicket ? 1 : 0),
+            ),
+            balls: Math.max(0, (prev.balls ?? 0) - reduceBallCount),
+            lastBalls: (prev.lastBalls ?? []).slice(0, -1),
+          }));
+
+          const { error: deleteError } = await supabase
+            .from("balls")
+            .delete()
+            .eq("id", lastBall.id);
+          if (deleteError) {
+            throw deleteError;
+          }
+
+          const { error: inningsUpdateError } = await supabase
+            .from("innings")
+            .update({
+              runs: Math.max(
+                0,
+                (liveState.runs ?? 0) - (Number(lastBall.runs) || 0),
+              ),
+              wickets: Math.max(
+                0,
+                (liveState.wickets ?? 0) - (lastBall.is_wicket ? 1 : 0),
+              ),
+              balls: Math.max(0, (liveState.balls ?? 0) - reduceBallCount),
+            })
+            .eq("id", currentInnings.id);
+
+          if (inningsUpdateError) {
+            throw inningsUpdateError;
+          }
+        } else {
+          const ballIncrement =
+            action.extraType === "WD" || action.extraType === "NB" ? 0 : 1;
+          const nextBall = {
+            id: `temp-${Date.now()}`,
+            runs: action.runs,
+            isWicket: action.isWicket,
+            extraType: action.extraType,
+            label: action.isWicket
+              ? "W"
+              : (action.extraType ?? String(action.runs)),
+          };
+
+          const optimistic = {
+            ...liveState,
+            runs: (liveState.runs ?? 0) + action.runs,
+            wickets: (liveState.wickets ?? 0) + (action.isWicket ? 1 : 0),
+            balls: (liveState.balls ?? 0) + ballIncrement,
+            inningsId: currentInnings.id,
+            lastBalls: [...(liveState.lastBalls ?? []), nextBall].slice(-12),
+          };
+
+          setLiveState(optimistic);
+
+          const { error: ballError } = await supabase.from("balls").insert({
+            match_id: matchId,
+            innings_id: currentInnings.id,
+            runs: action.runs,
+            is_wicket: action.isWicket,
+            extra_type: action.extraType,
+          });
+
+          if (ballError) {
+            throw ballError;
+          }
+
+          const { error: inningsError } = await supabase
+            .from("innings")
+            .update({
+              runs: optimistic.runs,
+              wickets: optimistic.wickets,
+              balls: optimistic.balls,
+            })
+            .eq("id", currentInnings.id);
+
+          if (inningsError) {
+            throw inningsError;
+          }
+        }
+
+        queryClient.invalidateQueries({
+          queryKey: matchQueryKeys.detail(matchId),
+          refetchType: "inactive",
+        });
+      } catch (error) {
+        setLiveState(previous);
+        setActionError("Scoring update failed. Please try again.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [base, latestInnings, liveState, matchId, queryClient, session],
+  );
+
+  const batterFor = (inningsId) => {
+    if (!inningsId) {
+      return [];
+    }
+    return base?.scorecards?.batter?.[String(inningsId)] ?? [];
+  };
+  const bowlerFor = (inningsId) => {
+    if (!inningsId) {
+      return [];
+    }
+    return base?.scorecards?.bowler?.[String(inningsId)] ?? [];
+  };
 
   return (
     <div className="app-shell">
       <NavBar />
-
       <main className="px-4 pb-28 pt-4 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-2xl flex-col gap-5">
-          {isLoading ? <LoadingPanel /> : null}
+        <div className="mx-auto flex max-w-4xl flex-col gap-5">
+          {matchQuery.isLoading ? <MatchSkeleton /> : null}
 
-          {!isLoading && errorMessage && !matchDetails ? (
+          {matchQuery.isError ? (
             <section
               className="feedback-panel"
               style={{
-                backgroundColor: '#fffaf9',
-                borderColor: 'rgba(248, 113, 113, 0.24)',
-                color: 'var(--text-primary)',
+                backgroundColor: "#fffaf9",
+                borderColor: "rgba(248, 113, 113, 0.24)",
               }}
             >
-              <h1 className="text-base font-semibold">Unable to load match</h1>
-              <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {errorMessage}
+              <h2 className="text-base font-semibold">Unable to load match</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Please try again shortly.
               </p>
             </section>
           ) : null}
 
-          {!isLoading && matchDetails && innings ? (
+          {base ? (
             <>
-              <section className="surface-card">
-                <div className="flex items-center justify-between gap-4">
-                  <TeamBadge team={matchDetails.team1} />
-
-                  <div className="shrink-0 px-2 text-center">
-                    <p
-                      className="text-xs font-semibold uppercase tracking-[0.28em] sm:text-sm"
-                      style={{ color: 'var(--text-secondary)' }}
-                    >
-                      VS
+              <section className="surface-card sticky top-2 z-20">
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                  <TeamCell
+                    team={base.match.team1}
+                    score={firstScore}
+                    note={team1Note}
+                  />
+                  <div className="px-2 text-center">
+                    <p className="text-3xl font-bold tracking-tight">
+                      {liveState.runs}/{liveState.wickets}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      Overs {formatOvers(liveState.balls)}
+                    </p>
+                    <p className="mt-1 text-xs uppercase tracking-wider text-blue-600">
+                      {base.match.status}
                     </p>
                   </div>
-
-                  <TeamBadge team={matchDetails.team2} align="right" />
-                </div>
-
-                <div className="mt-8 rounded-[1.5rem] px-5 py-6 text-center" style={{ backgroundColor: 'rgba(248, 250, 252, 0.85)' }}>
-                  <p className="text-4xl font-semibold tracking-tight sm:text-5xl" style={{ color: 'var(--text-primary)' }}>
-                    {scoreLabel}
-                  </p>
-                  <p className="mt-3 text-sm font-medium uppercase tracking-[0.2em]" style={{ color: 'var(--text-secondary)' }}>
-                    Overs {oversLabel}
-                  </p>
+                  <TeamCell
+                    team={base.match.team2}
+                    align="right"
+                    score={secondScore}
+                    note={team2Note}
+                  />
                 </div>
               </section>
 
-              
+              <LastBalls balls={liveState.lastBalls} />
+              {!isSessionLoading && session ? (
+                <AdminPanel
+                  disabled={!latestInnings?.id}
+                  onAction={handleAdminAction}
+                  isSubmitting={isSubmitting}
+                />
+              ) : null}
 
-              {errorMessage ? (
+              <InningsSection
+                title="First Innings"
+                innings={base.innings.first}
+                batterRows={batterFor(base.innings.first?.id)}
+                bowlerRows={bowlerFor(base.innings.first?.id)}
+              />
+
+              <InningsSection
+                title="Second Innings"
+                innings={base.innings.second}
+                batterRows={batterFor(base.innings.second?.id)}
+                bowlerRows={bowlerFor(base.innings.second?.id)}
+              />
+
+              {actionError ? (
                 <section
                   className="feedback-panel"
                   style={{
-                    backgroundColor: '#fffaf9',
-                    borderColor: 'rgba(248, 113, 113, 0.24)',
-                    color: 'var(--text-primary)',
+                    backgroundColor: "#fffaf9",
+                    borderColor: "rgba(248, 113, 113, 0.24)",
                   }}
                 >
-                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    {errorMessage}
-                  </p>
-                </section>
-              ) : null}
-
-              {session ? (
-                <section className="surface-card">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <p className="eyebrow">Admin Scoring</p>
-                      <h2 className="mt-2 text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
-                        Quick score controls
-                      </h2>
-                    </div>
-                    {isSubmitting ? (
-                      <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-                        Updating...
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-4 gap-3">
-                    {SCORE_ACTIONS.map((action) => (
-                      <ScoringButton
-                        key={action.label}
-                        action={action}
-                        disabled={isSubmitting}
-                        onClick={handleScoreAction}
-                      />
-                    ))}
-                  </div>
+                  <p className="text-sm text-slate-600">{actionError}</p>
                 </section>
               ) : null}
             </>
