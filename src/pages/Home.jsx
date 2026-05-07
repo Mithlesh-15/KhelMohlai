@@ -76,7 +76,6 @@ function Home() {
     () => mapMatchesWithTeams(matchesQuery.data ?? [], teamsQuery.data ?? []),
     [matchesQuery.data, teamsQuery.data],
   );
-
   const filteredMatches = useMemo(
     () => filterMatchesByTab(mappedMatches, activeTab),
     [mappedMatches, activeTab],

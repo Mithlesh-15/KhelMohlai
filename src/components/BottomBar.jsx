@@ -1,10 +1,11 @@
-import React from 'react';
-import { Activity, Trophy } from 'lucide-react';
-import { NavLink } from 'react-router-dom';
+import React from "react";
+import { Activity, Trophy, ChartPie } from "lucide-react";
+import { NavLink } from "react-router-dom";
 
 const navItems = [
-  { label: 'Matches', to: '/', icon: Activity, end: true },
-  { label: 'Leaderboard', to: '/leaderboard', icon: Trophy },
+  { label: "Matches", to: "/", icon: Activity, end: true },
+  { label: "Leaderboard", to: "/leaderboard", icon: Trophy },
+  { label: "Stats", to: "/stats", icon: ChartPie },
 ];
 
 function BottomBar() {
@@ -14,9 +15,9 @@ function BottomBar() {
         className="pointer-events-auto mx-auto flex w-full max-w-md items-center justify-center rounded-[1.75rem] border p-2 shadow-lg backdrop-blur sm:max-w-lg lg:max-w-xl"
         style={{
           background:
-            'linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(232, 240, 255, 0.94))',
-          borderColor: 'rgba(191, 210, 255, 0.9)',
-          boxShadow: '0 16px 36px rgba(15, 23, 42, 0.12)',
+            "linear-gradient(135deg, rgba(248, 250, 252, 0.96), rgba(232, 240, 255, 0.94))",
+          borderColor: "rgba(191, 210, 255, 0.9)",
+          boxShadow: "0 16px 36px rgba(15, 23, 42, 0.12)",
         }}
         aria-label="Bottom navigation"
       >
@@ -30,14 +31,18 @@ function BottomBar() {
               end={end}
               className={({ isActive }) =>
                 [
-                  'group flex min-w-0 flex-1 items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ease-out sm:px-5 lg:px-6',
-                  isActive ? 'shadow-sm' : 'hover:-translate-y-0.5',
-                ].join(' ')
+                  "group flex min-w-0 flex-1 items-center justify-center rounded-2xl px-4 py-3 text-sm font-medium transition-all duration-200 ease-out sm:px-5 lg:px-6",
+                  isActive ? "shadow-sm" : "hover:-translate-y-0.5",
+                ].join(" ")
               }
               style={({ isActive }) => ({
-                backgroundColor: isActive ? 'rgba(1, 69, 242, 0.12)' : 'transparent',
-                color: isActive ? '#0145F2' : 'var(--text-secondary)',
-                boxShadow: isActive ? 'inset 0 0 0 1px rgba(1, 69, 242, 0.1)' : 'none',
+                backgroundColor: isActive
+                  ? "rgba(1, 69, 242, 0.12)"
+                  : "transparent",
+                color: isActive ? "#0145F2" : "var(--text-secondary)",
+                boxShadow: isActive
+                  ? "inset 0 0 0 1px rgba(1, 69, 242, 0.1)"
+                  : "none",
               })}
             >
               <span className="flex items-center gap-2.5 lg:gap-3">

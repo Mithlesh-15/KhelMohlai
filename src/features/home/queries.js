@@ -126,7 +126,6 @@ export function filterMatchesByTab(matches, tab) {
     const date = new Date(value);
     return date >= todayStart && date < tomorrowStart;
   };
-
   const byStartTime = (a, b) => {
     const first = new Date(a.start_time).getTime();
     const second = new Date(b.start_time).getTime();

@@ -8,7 +8,7 @@ import {
 function LoadingRow() {
   return (
     <div
-      className="grid min-w-[620px] grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] animate-pulse items-center gap-2 rounded-[1.2rem] border px-3 py-3 sm:min-w-[700px] sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
+      className="grid min-w-155 grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] animate-pulse items-center gap-2 rounded-[1.2rem] border px-3 py-3 sm:min-w-175 sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
       style={{
         backgroundColor: "rgba(255, 255, 255, 0.72)",
         borderColor: "rgba(217, 226, 236, 0.85)",
@@ -96,7 +96,7 @@ function LeaderBoard() {
           }}
         >
           <div className="flex-1 overflow-y-auto overflow-x-auto px-2 py-2 sm:px-3 sm:py-3">
-            <div className="flex min-w-[620px] flex-col gap-2 sm:min-w-[700px] sm:gap-3">
+            <div className="flex min-w-155 flex-col gap-2 sm:min-w-175 sm:gap-3">
               <div
                 className="sticky top-0 z-10 grid grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] items-center gap-2 border-b px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.12em] sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4 sm:text-xs"
                 style={{
@@ -168,7 +168,7 @@ function LeaderBoard() {
                 ? teams.map((team) => (
                     <article
                       key={team.id}
-                      className="grid min-w-[620px] grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] items-center gap-2 rounded-[1.2rem] border px-3 py-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 sm:min-w-[700px] sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
+                      className="grid min-w-155 grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] items-center gap-2 rounded-[1.2rem] border px-3 py-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 sm:min-w-175 sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
                       style={{
                         background:
                           team.position <= 4
@@ -226,8 +226,8 @@ function LeaderBoard() {
                         {team.points}
                       </span>
                       <span className="text-right text-xs font-semibold tabular-nums sm:text-sm">
-                        {team.netRunRate >= 0 ? "+" : ""}
-                        {team.netRunRate.toFixed(2)}
+                        {team.netRunRate >= 0 ? "+" : "-"}
+                        {team.netRunRate.toFixed(3)}
                       </span>
                     </article>
                   ))

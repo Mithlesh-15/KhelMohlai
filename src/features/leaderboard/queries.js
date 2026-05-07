@@ -28,7 +28,7 @@ export function calculateNetRunRate({
     return 0;
   }
 
-  return Number(nrr.toFixed(2));
+  return Number(nrr.toFixed(3));
 }
 
 export async function fetchLeaderboardTable() {
