@@ -53,7 +53,9 @@ function TeamCell({ team, align = "left", score, note }) {
         <p className="truncate text-xs font-semibold sm:text-base">
           {team?.name ?? "TBD"}
         </p>
-        <p className="truncate text-xs font-medium text-slate-700">{score || "-"}</p>
+        <p className="truncate text-xs font-medium text-slate-700">
+          {score || "-"}
+        </p>
         <p className="truncate text-[11px] text-slate-500 sm:text-xs">{note}</p>
       </div>
     </div>
@@ -349,9 +351,10 @@ function Match() {
       if (!inningsId) return { batter: null, bowler: null };
 
       const nameById = new Map(
-        [...(team1PlayersQuery.data ?? []), ...(team2PlayersQuery.data ?? [])].map(
-          (player) => [String(player.id), player.name ?? "Unknown"],
-        ),
+        [
+          ...(team1PlayersQuery.data ?? []),
+          ...(team2PlayersQuery.data ?? []),
+        ].map((player) => [String(player.id), player.name ?? "Unknown"]),
       );
 
       let resolved = { batter: null, bowler: null };
@@ -359,10 +362,20 @@ function Match() {
         if (!prev) return prev;
 
         const inningsKey = String(inningsId);
-        const nextBatterRows = [...(prev.scorecards?.batter?.[inningsKey] ?? [])];
-        const nextBowlerRows = [...(prev.scorecards?.bowler?.[inningsKey] ?? [])];
+        const nextBatterRows = [
+          ...(prev.scorecards?.batter?.[inningsKey] ?? []),
+        ];
+        const nextBowlerRows = [
+          ...(prev.scorecards?.bowler?.[inningsKey] ?? []),
+        ];
 
-        if (batterDelta?.playerId && (batterDelta.forceRow || batterDelta.runs || batterDelta.balls || batterDelta.setOut != null)) {
+        if (
+          batterDelta?.playerId &&
+          (batterDelta.forceRow ||
+            batterDelta.runs ||
+            batterDelta.balls ||
+            batterDelta.setOut != null)
+        ) {
           const playerId = String(batterDelta.playerId);
           const index = nextBatterRows.findIndex(
             (row) => String(row.playerId) === playerId,
@@ -383,8 +396,14 @@ function Match() {
                   isOut: false,
                   strikeRate: 0,
                 };
-          const runs = Math.max(0, Number(existing.runs || 0) + Number(batterDelta.runs || 0));
-          const balls = Math.max(0, Number(existing.balls || 0) + Number(batterDelta.balls || 0));
+          const runs = Math.max(
+            0,
+            Number(existing.runs || 0) + Number(batterDelta.runs || 0),
+          );
+          const balls = Math.max(
+            0,
+            Number(existing.balls || 0) + Number(batterDelta.balls || 0),
+          );
           const updated = {
             ...existing,
             runs,
@@ -393,14 +412,21 @@ function Match() {
               batterDelta.setOut == null
                 ? Boolean(existing.isOut)
                 : Boolean(batterDelta.setOut),
-            strikeRate: balls > 0 ? Number(((runs / balls) * 100).toFixed(2)) : 0,
+            strikeRate:
+              balls > 0 ? Number(((runs / balls) * 100).toFixed(2)) : 0,
           };
           if (index >= 0) nextBatterRows[index] = updated;
           else nextBatterRows.push(updated);
           resolved.batter = updated;
         }
 
-        if (bowlerDelta?.playerId && (bowlerDelta.forceRow || bowlerDelta.runsConceded || bowlerDelta.ballsBowled || bowlerDelta.wickets)) {
+        if (
+          bowlerDelta?.playerId &&
+          (bowlerDelta.forceRow ||
+            bowlerDelta.runsConceded ||
+            bowlerDelta.ballsBowled ||
+            bowlerDelta.wickets)
+        ) {
           const playerId = String(bowlerDelta.playerId);
           const index = nextBowlerRows.findIndex(
             (row) => String(row.playerId) === playerId,
@@ -422,7 +448,8 @@ function Match() {
                 };
           const ballsBowled = Math.max(
             0,
-            Number(existing.ballsBowled || 0) + Number(bowlerDelta.ballsBowled || 0),
+            Number(existing.ballsBowled || 0) +
+              Number(bowlerDelta.ballsBowled || 0),
           );
           const runs = Math.max(
             0,
@@ -439,7 +466,9 @@ function Match() {
             wickets,
             overs: ballsToOversLabel(ballsBowled),
             economy:
-              ballsBowled > 0 ? Number(((runs * 6) / ballsBowled).toFixed(2)) : 0,
+              ballsBowled > 0
+                ? Number(((runs * 6) / ballsBowled).toFixed(2))
+                : 0,
           };
           if (index >= 0) nextBowlerRows[index] = updated;
           else nextBowlerRows.push(updated);
@@ -675,7 +704,13 @@ function Match() {
         setIsSubmitting(false);
       }
     },
-    [applyScorecardDeltas, liveState, matchId, syncCache, upsertPlayerStatsBatch],
+    [
+      applyScorecardDeltas,
+      liveState,
+      matchId,
+      syncCache,
+      upsertPlayerStatsBatch,
+    ],
   );
 
   const handleUndo = useCallback(async () => {
@@ -729,7 +764,7 @@ function Match() {
           setOut: lastBall.is_wicket ? false : undefined,
           forceRow: Boolean(
             lastBall.batsman_id &&
-              (batterRuns > 0 || batterBalls > 0 || lastBall.is_wicket),
+            (batterRuns > 0 || batterBalls > 0 || lastBall.is_wicket),
           ),
         },
         bowlerDelta: {
@@ -753,7 +788,13 @@ function Match() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [applyScorecardDeltas, liveState, matchId, syncCache, upsertPlayerStatsBatch]);
+  }, [
+    applyScorecardDeltas,
+    liveState,
+    matchId,
+    syncCache,
+    upsertPlayerStatsBatch,
+  ]);
 
   const usedBatterIds = useMemo(() => {
     const set = new Set();
@@ -1041,9 +1082,10 @@ function Match() {
   const playerNameById = useMemo(
     () =>
       new Map(
-        [...(team1PlayersQuery.data ?? []), ...(team2PlayersQuery.data ?? [])].map(
-          (player) => [String(player.id), player.name ?? "Unknown"],
-        ),
+        [
+          ...(team1PlayersQuery.data ?? []),
+          ...(team2PlayersQuery.data ?? []),
+        ].map((player) => [String(player.id), player.name ?? "Unknown"]),
       ),
     [team1PlayersQuery.data, team2PlayersQuery.data],
   );
@@ -1075,7 +1117,7 @@ function Match() {
                         : ""
                     }
                   />
-                  <div className="min-w-[88px] px-1 text-center sm:min-w-[110px] sm:px-2">
+                  <div className="min-w-22 px-1 text-center sm:min-w-27.5 sm:px-2">
                     <p className="text-2xl font-bold tracking-tight sm:text-3xl">
                       {liveState.runs}/{liveState.wickets}
                     </p>
@@ -1105,15 +1147,21 @@ function Match() {
                     <section className="surface-card">
                       <div className="grid gap-2 sm:grid-cols-3">
                         <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
-                          <span className="font-semibold text-slate-700">Striker:</span>{" "}
+                          <span className="font-semibold text-slate-700">
+                            Striker:
+                          </span>{" "}
                           {strikerName}
                         </p>
                         <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
-                          <span className="font-semibold text-slate-700">Non-striker:</span>{" "}
+                          <span className="font-semibold text-slate-700">
+                            Non-striker:
+                          </span>{" "}
                           {nonStrikerName}
                         </p>
                         <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
-                          <span className="font-semibold text-slate-700">Bowler:</span>{" "}
+                          <span className="font-semibold text-slate-700">
+                            Bowler:
+                          </span>{" "}
                           {currentBowlerName}
                         </p>
                       </div>

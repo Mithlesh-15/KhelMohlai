@@ -54,8 +54,6 @@ function mapScorecardRows(rows, type, playerNameMap = new Map()) {
         name,
         runs,
         balls,
-        fours: pickNumber(row.fours ?? row.four ?? row.boundary_4s),
-        sixes: pickNumber(row.sixes ?? row.six ?? row.boundary_6s),
         isOut: Boolean(row.is_out ?? row.out ?? false),
         strikeRate: balls > 0 ? Number(((runs / balls) * 100).toFixed(2)) : 0,
       };
@@ -67,7 +65,8 @@ function mapScorecardRows(rows, type, playerNameMap = new Map()) {
       row.overs != null
         ? String(row.overs)
         : `${Math.floor(balls / 6)}.${balls % 6}`;
-    const economy = balls > 0 ? Number(((runsConceded * 6) / balls).toFixed(2)) : 0;
+    const economy =
+      balls > 0 ? Number(((runsConceded * 6) / balls).toFixed(2)) : 0;
 
     return {
       id: row.id ?? `${name}-${Math.random()}`,
@@ -133,7 +132,7 @@ export async function fetchMatchDetails(matchId) {
     supabase
       .from("player_stats")
       .select(
-        "id, match_id, innings_id, player_id, role, runs, balls, fours, sixes, is_out, balls_bowled, runs_conceded, wickets",
+        "id, match_id, innings_id, player_id, role, runs, balls,is_out, balls_bowled, runs_conceded, wickets",
       )
       .eq("match_id", matchId),
     supabase.from("players").select("id, name, team_id").in("team_id", teamIds),
@@ -145,14 +144,22 @@ export async function fetchMatchDetails(matchId) {
   if (playersError) throw playersError;
 
   const playerNameMap = new Map(
-    (players ?? []).map((player) => [String(player.id), player.name ?? "Unknown"]),
+    (players ?? []).map((player) => [
+      String(player.id),
+      player.name ?? "Unknown",
+    ]),
   );
 
-  const teamsMap = new Map((teams ?? []).map((team) => [team.id, {
-    id: team.id,
-    name: team.name || FALLBACK_TEAM.name,
-    logo: team.logo || FALLBACK_TEAM.logo,
-  }]));
+  const teamsMap = new Map(
+    (teams ?? []).map((team) => [
+      team.id,
+      {
+        id: team.id,
+        name: team.name || FALLBACK_TEAM.name,
+        logo: team.logo || FALLBACK_TEAM.logo,
+      },
+    ]),
+  );
 
   const normalizedInnings = (innings ?? []).map((item, index) => {
     const runs = pickNumber(item.runs);
@@ -182,8 +189,14 @@ export async function fetchMatchDetails(matchId) {
     scorecardsByInnings.bowler[key].push(row);
   }
 
-  const firstInnings = normalizedInnings.find((item) => item.inningsNumber === 1) ?? normalizedInnings[0] ?? null;
-  const secondInnings = normalizedInnings.find((item) => item.inningsNumber === 2) ?? normalizedInnings[1] ?? null;
+  const firstInnings =
+    normalizedInnings.find((item) => item.inningsNumber === 1) ??
+    normalizedInnings[0] ??
+    null;
+  const secondInnings =
+    normalizedInnings.find((item) => item.inningsNumber === 2) ??
+    normalizedInnings[1] ??
+    null;
   const latestInnings = normalizedInnings[normalizedInnings.length - 1] ?? null;
 
   return {

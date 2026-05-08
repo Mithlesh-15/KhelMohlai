@@ -14,6 +14,7 @@ import Match from './pages/Match.jsx';
 import LeaderBoard from './pages/LeaderBoard.jsx';
 import Home from './pages/Home.jsx';
 import Clear from './pages/Clear.jsx';
+import StatsPage from './pages/Stats.jsx';
 import { queryClient } from './lib/queryClient';
 
 const router = createBrowserRouter(
@@ -22,6 +23,7 @@ const router = createBrowserRouter(
       <Route path="/" element={<App />}>
         <Route index element={<Home />} />
         <Route path="leaderboard" element={<LeaderBoard />} />
+        <Route path="stats" element={<StatsPage />} />
       </Route>
       <Route path="/login" element={<Login />} />
       <Route path="/match/:matchId" element={<Match />} />
