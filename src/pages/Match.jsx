@@ -31,10 +31,10 @@ function TeamCell({ team, align = "left", score, note }) {
 
   return (
     <div
-      className={`flex min-w-0 flex-1 items-center gap-3 ${isRight ? "flex-row-reverse text-right" : "text-left"}`}
+      className={`flex min-w-0 items-center gap-2 sm:gap-3 ${isRight ? "flex-row-reverse text-right" : "text-left"}`}
     >
       <div
-        className="h-12 w-12 overflow-hidden rounded-2xl border bg-slate-50"
+        className="h-10 w-10 shrink-0 overflow-hidden rounded-xl border bg-slate-50 sm:h-12 sm:w-12 sm:rounded-2xl"
         style={{ borderColor: "var(--border-soft)" }}
       >
         {team?.logo ? (
@@ -50,11 +50,11 @@ function TeamCell({ team, align = "left", score, note }) {
         )}
       </div>
       <div className="min-w-0">
-        <p className="truncate text-sm font-semibold sm:text-base">
+        <p className="truncate text-xs font-semibold sm:text-base">
           {team?.name ?? "TBD"}
         </p>
-        <p className="truncate text-xs text-slate-500">{score || "-"}</p>
-        <p className="truncate text-xs text-slate-500">{note}</p>
+        <p className="truncate text-xs font-medium text-slate-700">{score || "-"}</p>
+        <p className="truncate text-[11px] text-slate-500 sm:text-xs">{note}</p>
       </div>
     </div>
   );
@@ -972,6 +972,24 @@ function Match() {
     teams.find(
       (team) => String(team.id) === String(pendingNextInnings?.bowlingTeamId),
     )?.name ?? "";
+  const playerNameById = useMemo(
+    () =>
+      new Map(
+        [...(team1PlayersQuery.data ?? []), ...(team2PlayersQuery.data ?? [])].map(
+          (player) => [String(player.id), player.name ?? "Unknown"],
+        ),
+      ),
+    [team1PlayersQuery.data, team2PlayersQuery.data],
+  );
+  const strikerName = liveState.strikerId
+    ? (playerNameById.get(String(liveState.strikerId)) ?? "Unknown")
+    : "Unassigned";
+  const nonStrikerName = liveState.nonStrikerId
+    ? (playerNameById.get(String(liveState.nonStrikerId)) ?? "Unknown")
+    : "Unassigned";
+  const currentBowlerName = liveState.currentBowlerId
+    ? (playerNameById.get(String(liveState.currentBowlerId)) ?? "Unknown")
+    : "Unassigned";
 
   return (
     <div className="app-shell">
@@ -981,7 +999,7 @@ function Match() {
           {base ? (
             <>
               <section className="surface-card sticky top-2 z-20">
-                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+                <div className="grid grid-cols-3 items-center gap-2">
                   <TeamCell
                     team={base.match.team1}
                     score={firstScore}
@@ -991,14 +1009,14 @@ function Match() {
                         : ""
                     }
                   />
-                  <div className="px-2 text-center">
-                    <p className="text-3xl font-bold tracking-tight">
+                  <div className="min-w-[88px] px-1 text-center sm:min-w-[110px] sm:px-2">
+                    <p className="text-2xl font-bold tracking-tight sm:text-3xl">
                       {liveState.runs}/{liveState.wickets}
                     </p>
-                    <p className="text-sm text-slate-500">
+                    <p className="text-xs text-slate-500 sm:text-sm">
                       Overs {formatOvers(liveState.balls)}
                     </p>
-                    <p className="mt-1 text-xs uppercase tracking-wider text-blue-600">
+                    <p className="mt-1 text-[10px] uppercase tracking-wider text-blue-600 sm:text-xs">
                       {liveState.status}
                     </p>
                   </div>
@@ -1017,6 +1035,24 @@ function Match() {
 
               {!isSessionLoading && isAdminUser ? (
                 <>
+                  {liveState.status !== "upcoming" ? (
+                    <section className="surface-card">
+                      <div className="grid gap-2 sm:grid-cols-3">
+                        <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
+                          <span className="font-semibold text-slate-700">Striker:</span>{" "}
+                          {strikerName}
+                        </p>
+                        <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
+                          <span className="font-semibold text-slate-700">Non-striker:</span>{" "}
+                          {nonStrikerName}
+                        </p>
+                        <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
+                          <span className="font-semibold text-slate-700">Bowler:</span>{" "}
+                          {currentBowlerName}
+                        </p>
+                      </div>
+                    </section>
+                  ) : null}
                   {liveState.status === "upcoming" ? (
                     <section className="surface-card">
                       <button
