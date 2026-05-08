@@ -329,104 +329,175 @@ function Match() {
     [matchId, queryClient],
   );
 
-  useMatchRealtime({
-    matchId,
-    onLiveScoreEvent: (event) =>
+  const handleLiveScoreEvent = useCallback(
+    (event) =>
       setLiveState((prev) => {
         const next = { ...prev, ...event };
         syncCache(next);
         return next;
       }),
-    onPlayerStatsEvent: (row) => {
-      if (!row?.innings_id || !row?.role || !row?.player_id) return;
-      if (String(row.innings_id) !== String(liveState.inningsId)) return;
-      const inningsId = row.innings_id;
-      const role = row.role;
-      const playerId = row.player_id;
-      const rows =
-        role === "batter"
-          ? (base?.scorecards?.batter?.[String(inningsId)] ?? [])
-          : (base?.scorecards?.bowler?.[String(inningsId)] ?? []);
-      const player = [
-        ...(team1PlayersQuery.data ?? []),
-        ...(team2PlayersQuery.data ?? []),
-      ].find((item) => String(item.id) === String(playerId));
-      const name = player?.name ?? "Unknown";
-      const nextRows = rows.filter(
-        (item) => String(item.playerId) !== String(playerId),
-      );
-      if (role === "batter") {
-        const runs = Number(row.runs) || 0;
-        const balls = Number(row.balls) || 0;
-        nextRows.push({
-          id: row.id ?? `rt-batter-${inningsId}-${playerId}`,
-          inningsId,
-          playerId,
-          role,
-          name,
-          runs,
-          balls,
-          fours: Number(row.fours) || 0,
-          sixes: Number(row.sixes) || 0,
-          isOut: Boolean(row.is_out),
-          strikeRate: balls > 0 ? Number(((runs / balls) * 100).toFixed(2)) : 0,
-        });
-        syncScorecardsCache({ inningsId, batterRows: nextRows });
-      } else if (role === "bowler") {
-        const ballsBowled = Number(row.balls_bowled) || 0;
-        const runsConceded = Number(row.runs_conceded) || 0;
-        nextRows.push({
-          id: row.id ?? `rt-bowler-${inningsId}-${playerId}`,
-          inningsId,
-          playerId,
-          role,
-          name,
-          ballsBowled,
-          overs: ballsToOversLabel(ballsBowled),
-          runs: runsConceded,
-          wickets: Number(row.wickets) || 0,
-          economy:
-            ballsBowled > 0
-              ? Number(((runsConceded * 6) / ballsBowled).toFixed(2))
-              : 0,
-        });
-        syncScorecardsCache({ inningsId, bowlerRows: nextRows });
-      }
-    },
+    [syncCache],
+  );
+
+  useMatchRealtime({
+    matchId,
+    onLiveScoreEvent: handleLiveScoreEvent,
   });
 
-  const upsertPlayerStats = useCallback(
-    async ({ inningsId, playerId, role, patch }) => {
-      if (!inningsId || !playerId || !role) return;
-      const { data: existing } = await supabase
-        .from("player_stats")
-        .select("*")
-        .eq("match_id", matchId)
-        .eq("innings_id", inningsId)
-        .eq("player_id", playerId)
-        .eq("role", role)
-        .maybeSingle();
+  const applyScorecardDeltas = useCallback(
+    ({ inningsId, batterDelta, bowlerDelta }) => {
+      if (!inningsId) return { batter: null, bowler: null };
 
-      if (!existing) {
-        await supabase.from("player_stats").insert({
+      const nameById = new Map(
+        [...(team1PlayersQuery.data ?? []), ...(team2PlayersQuery.data ?? [])].map(
+          (player) => [String(player.id), player.name ?? "Unknown"],
+        ),
+      );
+
+      let resolved = { batter: null, bowler: null };
+      queryClient.setQueryData(matchQueryKeys.detail(matchId), (prev) => {
+        if (!prev) return prev;
+
+        const inningsKey = String(inningsId);
+        const nextBatterRows = [...(prev.scorecards?.batter?.[inningsKey] ?? [])];
+        const nextBowlerRows = [...(prev.scorecards?.bowler?.[inningsKey] ?? [])];
+
+        if (batterDelta?.playerId && (batterDelta.forceRow || batterDelta.runs || batterDelta.balls || batterDelta.setOut != null)) {
+          const playerId = String(batterDelta.playerId);
+          const index = nextBatterRows.findIndex(
+            (row) => String(row.playerId) === playerId,
+          );
+          const existing =
+            index >= 0
+              ? nextBatterRows[index]
+              : {
+                  id: `local-batter-${inningsKey}-${playerId}`,
+                  inningsId,
+                  playerId: batterDelta.playerId,
+                  role: "batter",
+                  name: nameById.get(playerId) ?? "Unknown",
+                  runs: 0,
+                  balls: 0,
+                  fours: 0,
+                  sixes: 0,
+                  isOut: false,
+                  strikeRate: 0,
+                };
+          const runs = Math.max(0, Number(existing.runs || 0) + Number(batterDelta.runs || 0));
+          const balls = Math.max(0, Number(existing.balls || 0) + Number(batterDelta.balls || 0));
+          const updated = {
+            ...existing,
+            runs,
+            balls,
+            isOut:
+              batterDelta.setOut == null
+                ? Boolean(existing.isOut)
+                : Boolean(batterDelta.setOut),
+            strikeRate: balls > 0 ? Number(((runs / balls) * 100).toFixed(2)) : 0,
+          };
+          if (index >= 0) nextBatterRows[index] = updated;
+          else nextBatterRows.push(updated);
+          resolved.batter = updated;
+        }
+
+        if (bowlerDelta?.playerId && (bowlerDelta.forceRow || bowlerDelta.runsConceded || bowlerDelta.ballsBowled || bowlerDelta.wickets)) {
+          const playerId = String(bowlerDelta.playerId);
+          const index = nextBowlerRows.findIndex(
+            (row) => String(row.playerId) === playerId,
+          );
+          const existing =
+            index >= 0
+              ? nextBowlerRows[index]
+              : {
+                  id: `local-bowler-${inningsKey}-${playerId}`,
+                  inningsId,
+                  playerId: bowlerDelta.playerId,
+                  role: "bowler",
+                  name: nameById.get(playerId) ?? "Unknown",
+                  ballsBowled: 0,
+                  overs: "0.0",
+                  runs: 0,
+                  wickets: 0,
+                  economy: 0,
+                };
+          const ballsBowled = Math.max(
+            0,
+            Number(existing.ballsBowled || 0) + Number(bowlerDelta.ballsBowled || 0),
+          );
+          const runs = Math.max(
+            0,
+            Number(existing.runs || 0) + Number(bowlerDelta.runsConceded || 0),
+          );
+          const wickets = Math.max(
+            0,
+            Number(existing.wickets || 0) + Number(bowlerDelta.wickets || 0),
+          );
+          const updated = {
+            ...existing,
+            ballsBowled,
+            runs,
+            wickets,
+            overs: ballsToOversLabel(ballsBowled),
+            economy:
+              ballsBowled > 0 ? Number(((runs * 6) / ballsBowled).toFixed(2)) : 0,
+          };
+          if (index >= 0) nextBowlerRows[index] = updated;
+          else nextBowlerRows.push(updated);
+          resolved.bowler = updated;
+        }
+
+        return {
+          ...prev,
+          scorecards: {
+            ...prev.scorecards,
+            batter: {
+              ...prev.scorecards.batter,
+              [inningsKey]: nextBatterRows,
+            },
+            bowler: {
+              ...prev.scorecards.bowler,
+              [inningsKey]: nextBowlerRows,
+            },
+          },
+        };
+      });
+
+      return resolved;
+    },
+    [matchId, queryClient, team1PlayersQuery.data, team2PlayersQuery.data],
+  );
+
+  const upsertPlayerStatsBatch = useCallback(
+    async ({ inningsId, batterRow, bowlerRow }) => {
+      if (!inningsId) return;
+      const rows = [];
+      if (batterRow?.playerId) {
+        rows.push({
           match_id: matchId,
           innings_id: inningsId,
-          player_id: playerId,
-          role,
-          ...patch,
+          player_id: batterRow.playerId,
+          role: "batter",
+          runs: Math.max(0, Number(batterRow.runs || 0)),
+          balls: Math.max(0, Number(batterRow.balls || 0)),
+          is_out: Boolean(batterRow.isOut),
         });
-        return;
       }
-
-      const merged = { ...existing };
-      for (const [key, value] of Object.entries(patch)) {
-        if (typeof value === "number") {
-          merged[key] = Math.max(0, Number(existing[key] || 0) + value);
-        } else {
-          merged[key] = value;
-        }
+      if (bowlerRow?.playerId) {
+        rows.push({
+          match_id: matchId,
+          innings_id: inningsId,
+          player_id: bowlerRow.playerId,
+          role: "bowler",
+          runs_conceded: Math.max(0, Number(bowlerRow.runs || 0)),
+          balls_bowled: Math.max(0, Number(bowlerRow.ballsBowled || 0)),
+          wickets: Math.max(0, Number(bowlerRow.wickets || 0)),
+        });
       }
-      await supabase.from("player_stats").update(merged).eq("id", existing.id);
+      if (!rows.length) return;
+      const { error } = await supabase.from("player_stats").upsert(rows, {
+        onConflict: "match_id,innings_id,player_id,role",
+      });
+      if (error) throw error;
     },
     [matchId],
   );
@@ -558,26 +629,27 @@ function Match() {
             : runs;
         const bowlerBalls = isLegal ? 1 : 0;
 
-        if (batterRuns > 0 || batterBalls > 0) {
-          await upsertPlayerStats({
-            inningsId: liveState.inningsId,
-            playerId: liveState.strikerId,
-            role: "batter",
-            patch: {
-              runs: batterRuns,
-              balls: batterBalls,
-            },
-          });
-        }
-        await upsertPlayerStats({
+        const updatedRows = applyScorecardDeltas({
           inningsId: liveState.inningsId,
-          playerId: liveState.currentBowlerId,
-          role: "bowler",
-          patch: {
-            runs_conceded: bowlerRuns,
-            balls_bowled: bowlerBalls,
-            wickets: isWicket ? 1 : 0,
+          batterDelta: {
+            playerId: liveState.strikerId,
+            runs: batterRuns,
+            balls: batterBalls,
+            setOut: isWicket ? true : undefined,
+            forceRow: Boolean(isWicket || batterRuns || batterBalls),
           },
+          bowlerDelta: {
+            playerId: liveState.currentBowlerId,
+            runsConceded: bowlerRuns,
+            ballsBowled: bowlerBalls,
+            wickets: isWicket ? 1 : 0,
+            forceRow: Boolean(bowlerRuns || bowlerBalls || isWicket),
+          },
+        });
+        await upsertPlayerStatsBatch({
+          inningsId: liveState.inningsId,
+          batterRow: updatedRows.batter,
+          bowlerRow: updatedRows.bowler,
         });
 
         const next = {
@@ -603,7 +675,7 @@ function Match() {
         setIsSubmitting(false);
       }
     },
-    [liveState, matchId, syncCache, upsertPlayerStats],
+    [applyScorecardDeltas, liveState, matchId, syncCache, upsertPlayerStatsBatch],
   );
 
   const handleUndo = useCallback(async () => {
@@ -648,46 +720,40 @@ function Match() {
         .update({ runs: next.runs, wickets: next.wickets, balls: next.balls })
         .eq("id", liveState.inningsId);
 
-      if (
-        lastBall.batsman_id &&
-        (batterRuns > 0 || batterBalls > 0 || lastBall.is_wicket)
-      ) {
-        await upsertPlayerStats({
-          inningsId: liveState.inningsId,
+      const updatedRows = applyScorecardDeltas({
+        inningsId: liveState.inningsId,
+        batterDelta: {
           playerId: lastBall.batsman_id,
-          role: "batter",
-          patch: {
-            runs: -batterRuns,
-            balls: -batterBalls,
-          },
-        });
-      }
-
-      if (lastBall.bowler_id) {
-        await upsertPlayerStats({
-          inningsId: liveState.inningsId,
+          runs: -batterRuns,
+          balls: -batterBalls,
+          setOut: lastBall.is_wicket ? false : undefined,
+          forceRow: Boolean(
+            lastBall.batsman_id &&
+              (batterRuns > 0 || batterBalls > 0 || lastBall.is_wicket),
+          ),
+        },
+        bowlerDelta: {
           playerId: lastBall.bowler_id,
-          role: "bowler",
-          patch: {
-            runs_conceded: -bowlerRuns,
-            balls_bowled: -bowlerBalls,
-            wickets: lastBall.is_wicket ? -1 : 0,
-          },
-        });
-      }
+          runsConceded: -bowlerRuns,
+          ballsBowled: -bowlerBalls,
+          wickets: lastBall.is_wicket ? -1 : 0,
+          forceRow: Boolean(lastBall.bowler_id),
+        },
+      });
+      await upsertPlayerStatsBatch({
+        inningsId: liveState.inningsId,
+        batterRow: updatedRows.batter,
+        bowlerRow: updatedRows.bowler,
+      });
 
       setLiveState(next);
       syncCache(next);
-      queryClient.invalidateQueries({
-        queryKey: matchQueryKeys.detail(matchId),
-        refetchType: "inactive",
-      });
     } catch {
       setError("Undo failed.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [liveState, matchId, queryClient, syncCache, upsertPlayerStats]);
+  }, [applyScorecardDeltas, liveState, matchId, syncCache, upsertPlayerStatsBatch]);
 
   const usedBatterIds = useMemo(() => {
     const set = new Set();

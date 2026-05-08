@@ -105,7 +105,9 @@ export async function fetchTeamPlayers(teamId) {
 export async function fetchMatchDetails(matchId) {
   const { data: match, error: matchError } = await supabase
     .from("matches")
-    .select("*")
+    .select(
+      "id, team1_id, team2_id, current_innings, striker_id, non_striker_id, current_bowler_id, status",
+    )
     .eq("id", matchId)
     .single();
 
@@ -121,8 +123,19 @@ export async function fetchMatchDetails(matchId) {
     { data: players, error: playersError },
   ] = await Promise.all([
     supabase.from("teams").select("id, name, logo").in("id", teamIds),
-    supabase.from("innings").select("*").eq("match_id", matchId).order("id", { ascending: true }),
-    supabase.from("player_stats").select("* ").eq("match_id", matchId),
+    supabase
+      .from("innings")
+      .select(
+        "id, match_id, batting_team_id, bowling_team_id, runs, wickets, balls, inning_number, innings_number, status",
+      )
+      .eq("match_id", matchId)
+      .order("id", { ascending: true }),
+    supabase
+      .from("player_stats")
+      .select(
+        "id, match_id, innings_id, player_id, role, runs, balls, fours, sixes, is_out, balls_bowled, runs_conceded, wickets",
+      )
+      .eq("match_id", matchId),
     supabase.from("players").select("id, name, team_id").in("team_id", teamIds),
   ]);
 

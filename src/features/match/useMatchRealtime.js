@@ -4,13 +4,12 @@ import { supabase } from "../../utils/supabase";
 export function useMatchRealtime({
   matchId,
   onLiveScoreEvent,
-  onPlayerStatsEvent,
 }) {
   useEffect(() => {
     if (!matchId) return undefined;
 
-    const inningsChannel = supabase
-      .channel(`match-live-innings-${matchId}`)
+    const matchChannel = supabase
+      .channel(`match-${matchId}`)
       .on(
         "postgres_changes",
         {
@@ -30,10 +29,6 @@ export function useMatchRealtime({
           });
         },
       )
-      .subscribe();
-
-    const matchChannel = supabase
-      .channel(`match-live-state-${matchId}`)
       .on(
         "postgres_changes",
         {
@@ -55,27 +50,8 @@ export function useMatchRealtime({
       )
       .subscribe();
 
-    const playerStatsChannel = supabase
-      .channel(`match-player-stats-${matchId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "player_stats",
-          filter: `match_id=eq.${matchId}`,
-        },
-        (payload) => {
-          if (!payload?.new) return;
-          onPlayerStatsEvent?.(payload.new);
-        },
-      )
-      .subscribe();
-
     return () => {
-      supabase.removeChannel(inningsChannel);
       supabase.removeChannel(matchChannel);
-      supabase.removeChannel(playerStatsChannel);
     };
-  }, [matchId, onLiveScoreEvent, onPlayerStatsEvent]);
+  }, [matchId, onLiveScoreEvent]);
 }
