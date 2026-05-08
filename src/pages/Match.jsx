@@ -121,6 +121,7 @@ function Match() {
     enabled: Boolean(matchId),
     staleTime: 5 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -196,7 +197,7 @@ function Match() {
     queryKey: matchQueryKeys.teamPlayers(base?.match?.team2_id),
     queryFn: () => fetchTeamPlayers(base?.match?.team2_id),
     enabled: Boolean(base?.match?.team2_id),
-    staleTime: 2 * 60 * 60 * 1000,
+    staleTime: 4 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
@@ -248,32 +249,32 @@ function Match() {
         );
         const normalizedBatters = batterRows
           ? batterRows.map((row) => ({
-          id: `manual-batter-${inningsKey}-${row.playerId}`,
-          inningsId,
-          playerId: row.playerId,
-          role: "batter",
-          name: nameById.get(String(row.playerId)) ?? "Unknown",
-          runs: row.runs,
-          balls: row.balls,
-          fours: row.fours,
-          sixes: row.sixes,
-          isOut: row.isOut,
-          strikeRate: row.strikeRate,
-          }))
+              id: `manual-batter-${inningsKey}-${row.playerId}`,
+              inningsId,
+              playerId: row.playerId,
+              role: "batter",
+              name: nameById.get(String(row.playerId)) ?? "Unknown",
+              runs: row.runs,
+              balls: row.balls,
+              fours: row.fours,
+              sixes: row.sixes,
+              isOut: row.isOut,
+              strikeRate: row.strikeRate,
+            }))
           : null;
         const normalizedBowlers = bowlerRows
           ? bowlerRows.map((row) => ({
-          id: `manual-bowler-${inningsKey}-${row.playerId}`,
-          inningsId,
-          playerId: row.playerId,
-          role: "bowler",
-          name: nameById.get(String(row.playerId)) ?? "Unknown",
-          ballsBowled: row.ballsBowled,
-          overs: row.overs,
-          runs: row.runs,
-          wickets: row.wickets,
-          economy: row.economy,
-          }))
+              id: `manual-bowler-${inningsKey}-${row.playerId}`,
+              inningsId,
+              playerId: row.playerId,
+              role: "bowler",
+              name: nameById.get(String(row.playerId)) ?? "Unknown",
+              ballsBowled: row.ballsBowled,
+              overs: row.overs,
+              runs: row.runs,
+              wickets: row.wickets,
+              economy: row.economy,
+            }))
           : null;
 
         return {
@@ -344,14 +345,16 @@ function Match() {
       const playerId = row.player_id;
       const rows =
         role === "batter"
-          ? base?.scorecards?.batter?.[String(inningsId)] ?? []
-          : base?.scorecards?.bowler?.[String(inningsId)] ?? [];
-      const player =
-        [...(team1PlayersQuery.data ?? []), ...(team2PlayersQuery.data ?? [])].find(
-          (item) => String(item.id) === String(playerId),
-        );
+          ? (base?.scorecards?.batter?.[String(inningsId)] ?? [])
+          : (base?.scorecards?.bowler?.[String(inningsId)] ?? []);
+      const player = [
+        ...(team1PlayersQuery.data ?? []),
+        ...(team2PlayersQuery.data ?? []),
+      ].find((item) => String(item.id) === String(playerId));
       const name = player?.name ?? "Unknown";
-      const nextRows = rows.filter((item) => String(item.playerId) !== String(playerId));
+      const nextRows = rows.filter(
+        (item) => String(item.playerId) !== String(playerId),
+      );
       if (role === "batter") {
         const runs = Number(row.runs) || 0;
         const balls = Number(row.balls) || 0;
@@ -418,7 +421,7 @@ function Match() {
       const merged = { ...existing };
       for (const [key, value] of Object.entries(patch)) {
         if (typeof value === "number") {
-          merged[key] = Number(existing[key] || 0) + value;
+          merged[key] = Math.max(0, Number(existing[key] || 0) + value);
         } else {
           merged[key] = value;
         }
@@ -609,7 +612,7 @@ function Match() {
     try {
       const { data: lastBall } = await supabase
         .from("balls")
-        .select("id, runs, extra_type, is_wicket")
+        .select("id, runs, extra_type, is_wicket, batsman_id, bowler_id")
         .eq("match_id", matchId)
         .eq("innings_id", liveState.inningsId)
         .order("id", { ascending: false })
@@ -627,19 +630,64 @@ function Match() {
         balls: Math.max(0, liveState.balls - (legal ? 1 : 0)),
       };
 
+      const lastRuns = Number(lastBall.runs || 0);
+      const batterRuns =
+        !lastBall.extra_type || lastBall.extra_type === "NB" ? lastRuns : 0;
+      const batterBalls = legal ? 1 : 0;
+      const bowlerRuns =
+        lastBall.extra_type === "LB" ||
+        lastBall.extra_type === "B" ||
+        lastBall.extra_type === "P"
+          ? 0
+          : lastRuns;
+      const bowlerBalls = legal ? 1 : 0;
+
       await supabase.from("balls").delete().eq("id", lastBall.id);
       await supabase
         .from("innings")
         .update({ runs: next.runs, wickets: next.wickets, balls: next.balls })
         .eq("id", liveState.inningsId);
+
+      if (
+        lastBall.batsman_id &&
+        (batterRuns > 0 || batterBalls > 0 || lastBall.is_wicket)
+      ) {
+        await upsertPlayerStats({
+          inningsId: liveState.inningsId,
+          playerId: lastBall.batsman_id,
+          role: "batter",
+          patch: {
+            runs: -batterRuns,
+            balls: -batterBalls,
+          },
+        });
+      }
+
+      if (lastBall.bowler_id) {
+        await upsertPlayerStats({
+          inningsId: liveState.inningsId,
+          playerId: lastBall.bowler_id,
+          role: "bowler",
+          patch: {
+            runs_conceded: -bowlerRuns,
+            balls_bowled: -bowlerBalls,
+            wickets: lastBall.is_wicket ? -1 : 0,
+          },
+        });
+      }
+
       setLiveState(next);
       syncCache(next);
+      queryClient.invalidateQueries({
+        queryKey: matchQueryKeys.detail(matchId),
+        refetchType: "inactive",
+      });
     } catch {
       setError("Undo failed.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [liveState, matchId, syncCache]);
+  }, [liveState, matchId, queryClient, syncCache, upsertPlayerStats]);
 
   const usedBatterIds = useMemo(() => {
     const set = new Set();
@@ -895,9 +943,17 @@ function Match() {
     : "Yet to Bat";
 
   const batterFor = (inningsId) =>
-    inningsId ? (base?.scorecards?.batter?.[String(inningsId)] ?? []) : [];
+    inningsId
+      ? (base?.scorecards?.batter?.[String(inningsId)] ?? []).filter(
+          (row) => Number(row?.balls) > 0,
+        )
+      : [];
   const bowlerFor = (inningsId) =>
-    inningsId ? (base?.scorecards?.bowler?.[String(inningsId)] ?? []) : [];
+    inningsId
+      ? (base?.scorecards?.bowler?.[String(inningsId)] ?? []).filter(
+          (row) => Number(row?.ballsBowled) > 0,
+        )
+      : [];
   const nextInningsBattingPlayers = pendingNextInnings?.battingTeamId
     ? String(base?.match?.team1_id) === String(pendingNextInnings.battingTeamId)
       ? (team1PlayersQuery.data ?? [])

@@ -38,6 +38,7 @@ export async function saveManualMatchSync({
     role: "batter",
     runs: clampNonNegativeInteger(row.runs),
     balls: clampNonNegativeInteger(row.balls),
+    is_out: Boolean(row.isOut),
   }));
 
   const bowlerRows = (bowlers ?? []).map((row) => ({
@@ -95,6 +96,7 @@ export async function saveManualMatchSync({
         role: "batter",
         runs: row.runs,
         balls: row.balls,
+        isOut: Boolean(row.is_out),
         strikeRate: computeStrikeRate(row.runs, row.balls),
       })),
       bowler: bowlerRows.map((row) => ({

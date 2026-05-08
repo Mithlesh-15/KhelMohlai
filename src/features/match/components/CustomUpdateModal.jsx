@@ -55,6 +55,7 @@ function CustomUpdateModal({
           name: player.name,
           runs: clampNonNegativeInteger(existing?.runs),
           balls: clampNonNegativeInteger(existing?.balls),
+          isOut: Boolean(existing?.isOut),
         };
       }),
       bowlers: (bowlingPlayers ?? []).map((player) => {
@@ -137,6 +138,7 @@ function CustomUpdateModal({
         playerId: item.playerId,
         runs: item.runs,
         balls: item.balls,
+        isOut: Boolean(item.isOut),
       })),
       bowlers: form.bowlers.map((item) => ({
         ...item,
@@ -216,9 +218,19 @@ function CustomUpdateModal({
                 return (
                   <div key={item.playerId} className="rounded-2xl border border-slate-200 p-3">
                     <p className="mb-2 text-sm font-semibold text-slate-800">{item.name}</p>
-                    <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="grid gap-2 sm:grid-cols-4">
                       <label className="space-y-1"><span className="text-[11px] font-semibold text-slate-600">Runs</span><input className="w-full rounded-xl border border-slate-200 p-2" placeholder="Runs" {...numberInput(item.runs, (value) => updateBatter(item.playerId, "runs", value))} /></label>
                       <label className="space-y-1"><span className="text-[11px] font-semibold text-slate-600">Balls</span><input className="w-full rounded-xl border border-slate-200 p-2" placeholder="Balls" {...numberInput(item.balls, (value) => updateBatter(item.playerId, "balls", value))} /></label>
+                      <label className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(item.isOut)}
+                          onChange={(event) =>
+                            updateBatter(item.playerId, "isOut", event.target.checked)
+                          }
+                        />
+                        Out
+                      </label>
                       <div className="rounded-xl border border-slate-200 p-2 text-xs text-slate-500">SR: {strikeRate}</div>
                     </div>
                   </div>
