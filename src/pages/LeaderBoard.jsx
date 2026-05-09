@@ -227,7 +227,7 @@ function LeaderBoard() {
                         {team.points}
                       </span>
                       <span className="text-right text-xs font-semibold tabular-nums sm:text-sm">
-                        {team.netRunRate >= 0 ? "+" : "-"}
+                        {team.netRunRate >= 0 ? "+" : ""}
                         {team.netRunRate.toFixed(3)}
                       </span>
                     </article>
