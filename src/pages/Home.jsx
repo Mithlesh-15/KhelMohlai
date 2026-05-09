@@ -53,29 +53,6 @@ function LoadingCard() {
 
 function Home() {
   const [activeTab, setActiveTab] = useState("today");
-  const matches =[
-    {
-      id: 0,
-      team1: { name: "TBL", logo: "https://i.pinimg.com/736x/6c/a7/fd/6ca7fdf326848b6f3c149a1245cb47d9.jpg" },
-      team2: { name: "TBL", logo: "https://i.pinimg.com/736x/6c/a7/fd/6ca7fdf326848b6f3c149a1245cb47d9.jpg" },
-      status: "upcoming",
-      formattedStartTime: "Today, 6:30 PM"
-    },
-    {
-      id: 0,
-      team1: { name: "TBL", logo: "https://i.pinimg.com/736x/6c/a7/fd/6ca7fdf326848b6f3c149a1245cb47d9.jpg" },
-      team2: { name: "TBL", logo: "https://i.pinimg.com/736x/6c/a7/fd/6ca7fdf326848b6f3c149a1245cb47d9.jpg" },
-      status: "upcoming",
-      formattedStartTime: "Today, 6:30 PM"
-    },
-    {
-      id: 0,
-      team1: { name: "TBL", logo: "https://i.pinimg.com/736x/6c/a7/fd/6ca7fdf326848b6f3c149a1245cb47d9.jpg" },
-      team2: { name: "TBL", logo: "https://i.pinimg.com/736x/6c/a7/fd/6ca7fdf326848b6f3c149a1245cb47d9.jpg" },
-      status: "upcoming",
-      formattedStartTime: "Today, 6:30 PM"
-    }
-  ]
 
   const teamsQuery = useQuery({
     queryKey: homeQueryKeys.teams,
@@ -183,7 +160,6 @@ function Home() {
               <MatchCard key={match.id} match={match} />
             ))
           : null}
-          {/* <MatchCard match={matches} /> */}
       </div>
     </main>
   );
