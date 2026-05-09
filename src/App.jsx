@@ -2,6 +2,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import NavBar from './components/NavBar';
 import BottemBar from './components/BottomBar';
+import { Analytics } from "@vercel/analytics/next"
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
       <NavBar />
       <Outlet />
       <BottemBar />
+      <Analytics />
     </div>
   );
 }
