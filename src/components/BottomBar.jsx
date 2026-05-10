@@ -5,7 +5,6 @@ import { NavLink } from "react-router-dom";
 const navItems = [
   { label: "Matches", to: "/", icon: Activity, end: true },
   { label: "Leaderboard", to: "/leaderboard", icon: Trophy },
-  { label: "Stats", to: "/stats", icon: ChartPie },
 ];
 
 function BottomBar() {
