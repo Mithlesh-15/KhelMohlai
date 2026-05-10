@@ -76,11 +76,11 @@ function InningsSection({ title, innings, batterRows, bowlerRows }) {
       <div className="space-y-4">
         <div>
           <h4 className="mb-2 text-sm font-semibold text-slate-700">Batters</h4>
-          <BatterTable rows={batterRows} />
+          {/* <BatterTable rows={batterRows} /> */}
         </div>
         <div>
           <h4 className="mb-2 text-sm font-semibold text-slate-700">Bowlers</h4>
-          <BowlerTable rows={bowlerRows} />
+          {/* <BowlerTable rows={bowlerRows} /> */}
         </div>
       </div>
     </section>
@@ -1207,7 +1207,7 @@ function Match() {
                 </>
               ) : null}
 
-              <InningsSection
+              {/* <InningsSection
                 title="First Innings"
                 innings={base.innings.first}
                 batterRows={batterFor(base.innings.first?.id)}
@@ -1218,7 +1218,7 @@ function Match() {
                 innings={base.innings.second}
                 batterRows={batterFor(base.innings.second?.id)}
                 bowlerRows={bowlerFor(base.innings.second?.id)}
-              />
+              /> */}
 
               {error ? (
                 <section className="feedback-panel">
