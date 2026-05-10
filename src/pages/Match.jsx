@@ -597,7 +597,7 @@ function Match() {
   );
 
   const scoreBall = useCallback(
-    async ({ runs, extraType = null, isWicket = false }) => {
+    async ({ runs, extraType = null, isWicket = false, shouldSwapStrike = false }) => {
       if (
         !liveState.inningsId ||
         !liveState.strikerId ||
@@ -631,7 +631,12 @@ function Match() {
         });
         if (ballError) throw ballError;
 
-        if (!isWicket && runs % 2 === 1) {
+        if (extraType) {
+          if (shouldSwapStrike) {
+            strikerId = liveState.nonStrikerId;
+            nonStrikerId = liveState.strikerId;
+          }
+        } else if (!isWicket && runs % 2 === 1) {
           strikerId = liveState.nonStrikerId;
           nonStrikerId = liveState.strikerId;
         }
@@ -1235,9 +1240,9 @@ function Match() {
                 open={showExtrasModal}
                 extraType={pendingExtraType}
                 onClose={() => setShowExtrasModal(false)}
-                onSelect={(runs) => {
+                onSelect={({ runs, shouldSwapStrike }) => {
                   setShowExtrasModal(false);
-                  scoreBall({ runs, extraType: pendingExtraType });
+                  scoreBall({ runs, extraType: pendingExtraType, shouldSwapStrike });
                 }}
               />
               <NewBowlerModal
