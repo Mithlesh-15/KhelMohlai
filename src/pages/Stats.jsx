@@ -69,12 +69,12 @@ function PlayerStatItem({
           {initialsFromName(playerName)}
         </div>
 
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold sm:text-base">
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 break-words text-sm font-semibold leading-tight sm:text-base">
             {playerName}
           </p>
           <p
-            className="truncate text-xs sm:text-sm"
+            className="line-clamp-2 break-words text-xs leading-tight sm:text-sm"
             style={{ color: "var(--text-secondary)" }}
           >
             {teamName}

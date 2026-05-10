@@ -103,7 +103,7 @@ function CustomUpdateModal({
 
   const validate = () => {
     if (!form) return "Form not ready.";
-    if (form.ballsInOver > 5) return "Balls must be between 0 and 5.";
+    if (form.ballsInOver > 8) return "Balls must be between 0 and 8.";
     if (
       form.strikerId &&
       form.nonStrikerId &&
@@ -111,8 +111,8 @@ function CustomUpdateModal({
     ) {
       return "Striker and non-striker cannot be the same.";
     }
-    if (form.bowlers.some((item) => item.ballsInOver > 5)) {
-      return "Bowler balls must be between 0 and 5.";
+    if (form.bowlers.some((item) => item.ballsInOver > 8)) {
+      return "Bowler balls must be between 0 and 8.";
     }
     return "";
   };
@@ -184,7 +184,7 @@ function CustomUpdateModal({
               <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">Wickets</span><input placeholder="e.g. 4" className="w-full rounded-xl border border-slate-200 p-2.5" {...numberInput(form.wickets, (value) => setForm((prev) => ({ ...prev, wickets: value })))} /></label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">Overs</span><input placeholder="e.g. 14" className="w-full rounded-xl border border-slate-200 p-2.5" {...numberInput(form.overs, (value) => setForm((prev) => ({ ...prev, overs: value })))} /></label>
-                <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">Balls</span><input placeholder="0-5" className="w-full rounded-xl border border-slate-200 p-2.5" {...numberInput(form.ballsInOver, (value) => setForm((prev) => ({ ...prev, ballsInOver: value })))} max={5} /></label>
+                <label className="space-y-1"><span className="text-xs font-semibold text-slate-600">Balls</span><input placeholder="0-8" className="w-full rounded-xl border border-slate-200 p-2.5" {...numberInput(form.ballsInOver, (value) => setForm((prev) => ({ ...prev, ballsInOver: value })))} max={8} /></label>
               </div>
 
               <label className="space-y-1 sm:col-span-2 lg:col-span-1">

@@ -9,7 +9,7 @@ function ExtrasModal({ open, extraType, onClose, onSelect }) {
         <h3 className="text-lg font-semibold">{extraType} Runs</h3>
         <p className="mt-1 text-sm text-slate-500">How many runs?</p>
         <div className="mt-4 grid grid-cols-3 gap-3">
-          {[1, 2, 3, 4, 5, 6].map((run) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((run) => (
             <button key={run} className="h-11 rounded-xl border border-slate-200 bg-slate-50 text-sm font-semibold" onClick={() => onSelect(run)}>
               {run}
             </button>

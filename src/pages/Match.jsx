@@ -49,14 +49,14 @@ function TeamCell({ team, align = "left", score, note }) {
           </div>
         )}
       </div>
-      <div className="min-w-0">
-        <p className="truncate text-xs font-semibold sm:text-base">
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 break-words text-xs font-semibold leading-tight sm:text-sm">
           {team?.name ?? "TBD"}
         </p>
-        <p className="truncate text-xs font-medium text-slate-700">
+        <p className="mt-0.5 text-xs font-medium text-slate-700">
           {score || "-"}
         </p>
-        <p className="truncate text-[11px] text-slate-500 sm:text-xs">{note}</p>
+        <p className="text-[11px] text-slate-500 sm:text-xs">{note}</p>
       </div>
     </div>
   );
@@ -1107,7 +1107,7 @@ function Match() {
           {base ? (
             <>
               <section className="surface-card sticky top-2 z-20">
-                <div className="grid grid-cols-3 items-center gap-2">
+                <div className="grid items-start gap-2" style={{ gridTemplateColumns: "1fr auto 1fr" }}>
                   <TeamCell
                     team={base.match.team1}
                     score={firstScore}
@@ -1117,7 +1117,7 @@ function Match() {
                         : ""
                     }
                   />
-                  <div className="min-w-22 px-1 text-center sm:min-w-27.5 sm:px-2">
+                  <div className="shrink-0 px-1 text-center sm:px-2">
                     <p className="text-2xl font-bold tracking-tight sm:text-3xl">
                       {liveState.runs}/{liveState.wickets}
                     </p>
