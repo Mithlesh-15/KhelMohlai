@@ -283,19 +283,7 @@ function LiveMatchView({
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <InfoChip label="Striker" value={strikerName} tone="slate" />
-              <InfoChip
-                label="Non-striker"
-                value={nonStrikerName}
-                tone="slate"
-              />
-              <InfoChip
-                label="Bowler"
-                value={currentBowlerName}
-                tone="amber"
-              />
-            </div>
+            
           </div>
         </div>
       </div>
