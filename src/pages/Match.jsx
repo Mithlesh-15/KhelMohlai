@@ -10,6 +10,7 @@ import NewBowlerModal from "../features/match/components/NewBowlerModal";
 import NewBatterModal from "../features/match/components/NewBatterModal";
 import CustomUpdateModal from "../features/match/components/CustomUpdateModal";
 import NextInningsSetupModal from "../features/match/components/NextInningsSetupModal";
+import WinnerSelectionModal from "../features/match/components/WinnerSelectionModal";
 import { saveManualMatchSync } from "../features/match/manualSync";
 import { ballsToOversLabel } from "../features/match/overs";
 import {
@@ -22,6 +23,404 @@ import { useMatchRealtime } from "../features/match/useMatchRealtime";
 
 function formatOvers(totalBalls) {
   return ballsToOversLabel(totalBalls);
+}
+
+function buildTeamScoreMap(innings = []) {
+  return innings.reduce((acc, inning) => {
+    if (!inning?.batting_team_id) return acc;
+    acc[String(inning.batting_team_id)] = inning;
+    return acc;
+  }, {});
+}
+
+function getTeamScoreSummary(team, scoreMap) {
+  if (!team?.id) {
+    return {
+      runs: 0,
+      wickets: 0,
+      balls: 0,
+      overs: "0.0",
+      inningsId: null,
+      hasScore: false,
+    };
+  }
+
+  const inning = scoreMap[String(team.id)] ?? null;
+  const balls = Number(inning?.balls ?? 0);
+  return {
+    runs: Number(inning?.runs ?? 0),
+    wickets: Number(inning?.wickets ?? 0),
+    balls,
+    overs: formatOvers(balls),
+    inningsId: inning?.id ?? null,
+    hasScore: Boolean(inning),
+  };
+}
+
+function TeamLogo({ team, className = "h-16 w-16 sm:h-20 sm:w-20" }) {
+  return (
+    <div
+      className={`shrink-0 overflow-hidden rounded-full border border-white bg-white shadow-lg ${className}`}
+    >
+      {team?.logo ? (
+        <img
+          src={team.logo}
+          alt={`${team.name} logo`}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center bg-slate-100 text-xl font-black text-slate-400">
+          {String(team?.name ?? "T").slice(0, 1)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TeamName({ children, className = "" }) {
+  return (
+    <p
+      className={`min-h-[3rem] text-wrap break-words text-balance font-semibold leading-tight ${className}`}
+    >
+      {children}
+    </p>
+  );
+}
+
+function StatusPill({ status }) {
+  const meta = {
+    upcoming: "bg-slate-100 text-slate-700 ring-slate-200",
+    live: "bg-rose-50 text-rose-700 ring-rose-200",
+    completed: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  }[status] ?? "bg-slate-100 text-slate-700 ring-slate-200";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.28em] ring-1 ring-inset ${meta}`}
+    >
+      {status === "live" ? (
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-rose-500" />
+      ) : null}
+      {status}
+    </span>
+  );
+}
+
+function InfoChip({ label, value, tone = "slate" }) {
+  const tones = {
+    slate: "border-slate-200 bg-white text-slate-700",
+    blue: "border-blue-200 bg-blue-50 text-blue-800",
+    emerald: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    amber: "border-amber-200 bg-amber-50 text-amber-800",
+    rose: "border-rose-200 bg-rose-50 text-rose-800",
+  };
+
+  return (
+    <div
+      className={`rounded-2xl border px-4 py-3 shadow-sm ${tones[tone] ?? tones.slate}`}
+    >
+      <p className="text-[10px] font-black uppercase tracking-[0.24em] opacity-70">
+        {label}
+      </p>
+      <p className="mt-1 text-sm font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function UpcomingMatchView({ match, team1, team2 }) {
+  return (
+    <section className="surface-card overflow-hidden p-0">
+      <div className="bg-[radial-gradient(circle_at_top_left,_rgba(1,69,242,0.14),_transparent_35%),linear-gradient(135deg,_rgba(255,255,255,0.98),_rgba(233,240,255,0.8))] px-4 py-5 sm:px-8 sm:py-8">
+        <div className="flex items-center justify-between gap-3">
+          <StatusPill status="upcoming" />
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Match Preview
+          </p>
+        </div>
+
+        <div className="mt-6 grid items-center gap-5 sm:grid-cols-[1fr_auto_1fr] sm:gap-6">
+          <div className="flex flex-col items-center text-center">
+            <TeamLogo team={team1} className="h-24 w-24 sm:h-32 sm:w-32" />
+            <TeamName className="mt-4 max-w-[14rem] text-lg sm:max-w-[16rem] sm:text-2xl">
+              {team1?.name ?? "Team 1"}
+            </TeamName>
+          </div>
+
+          <div className="flex items-center justify-center">
+            <div className="flex h-24 w-24 items-center justify-center rounded-full border border-blue-100 bg-white text-3xl font-black tracking-[0.3em] text-blue-700 shadow-lg sm:h-28 sm:w-28 sm:text-4xl">
+              VS
+            </div>
+          </div>
+
+          <div className="flex flex-col items-center text-center">
+            <TeamLogo team={team2} className="h-24 w-24 sm:h-32 sm:w-32" />
+            <TeamName className="mt-4 max-w-[14rem] text-lg sm:max-w-[16rem] sm:text-2xl">
+              {team2?.name ?? "Team 2"}
+            </TeamName>
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <InfoChip label="Status" value="Upcoming match" tone="blue" />
+          <InfoChip
+            label="Format"
+            value={match?.format ?? "Tournament fixture"}
+            tone="slate"
+          />
+          <InfoChip
+            label="Venue"
+            value={match?.venue ?? "Match center"}
+            tone="emerald"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LiveMatchView({
+  battingTeam,
+  bowlingTeam,
+  battingSummary,
+  bowlingSummary,
+  strikerName,
+  nonStrikerName,
+  currentBowlerName,
+  targetText,
+  runRateText,
+}) {
+  return (
+    <section className="surface-card overflow-hidden p-0">
+      <div className="bg-[radial-gradient(circle_at_top_right,_rgba(239,68,68,0.18),_transparent_35%),linear-gradient(135deg,_#fffdfd,_#f8fbff)] px-4 py-5 sm:px-8 sm:py-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <StatusPill status="live" />
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Stadium scoreboard
+          </p>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.85fr)] lg:items-stretch">
+          <div className="rounded-[2rem] border border-rose-100 bg-white p-4 shadow-[0_24px_60px_rgba(15,23,42,0.08)] sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <TeamLogo team={battingTeam} className="h-16 w-16 sm:h-20 sm:w-20" />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-rose-600">
+                    Batting now
+                  </p>
+                  <TeamName className="mt-1 max-w-[14rem] text-lg text-slate-900 sm:max-w-[20rem] sm:text-3xl">
+                    {battingTeam?.name ?? "Batting team"}
+                  </TeamName>
+                </div>
+              </div>
+              {targetText ? (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-900 shadow-sm">
+                  {targetText}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-end gap-2">
+              <div className="text-6xl font-black tracking-tighter text-slate-950 sm:text-[7rem]">
+                {battingSummary.runs}
+                <span className="text-3xl text-slate-400 sm:text-[4rem]">
+                  /{battingSummary.wickets}
+                </span>
+              </div>
+              <div className="pb-2 text-sm font-bold uppercase tracking-[0.2em] text-slate-500 sm:text-base">
+                Overs {battingSummary.overs}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <InfoChip label="Run rate" value={runRateText} tone="rose" />
+              <InfoChip
+                label="Bowling side"
+                value={bowlingTeam?.name ?? "Opposition"}
+                tone="slate"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-3">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-500">
+                    Scoreboard
+                  </p>
+                  <p className="mt-1 text-base font-semibold text-slate-900">
+                    Match overview
+                  </p>
+                </div>
+                <TeamLogo team={bowlingTeam} className="h-12 w-12" />
+              </div>
+
+              <div className="mt-4 space-y-3">
+                <div className="rounded-2xl bg-rose-50 px-4 py-3 ring-1 ring-rose-100">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-700">
+                    Batting team
+                  </p>
+                  <p className="mt-1 text-xl font-black text-rose-950">
+                    {battingSummary.runs}/{battingSummary.wickets}
+                  </p>
+                  <p className="text-sm font-semibold text-rose-700">
+                    Overs {battingSummary.overs}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-slate-50 px-4 py-3 ring-1 ring-slate-100">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                    Other team
+                  </p>
+                  <p className="mt-1 text-xl font-black text-slate-900">
+                    {bowlingSummary.runs}/{bowlingSummary.wickets}
+                  </p>
+                  <p className="text-sm font-semibold text-slate-600">
+                    Overs {bowlingSummary.overs}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <InfoChip label="Striker" value={strikerName} tone="slate" />
+              <InfoChip
+                label="Non-striker"
+                value={nonStrikerName}
+                tone="slate"
+              />
+              <InfoChip
+                label="Bowler"
+                value={currentBowlerName}
+                tone="amber"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CompletedMatchView({
+  team1,
+  team2,
+  team1Summary,
+  team2Summary,
+  winnerTeamId,
+  winnerText,
+}) {
+  const team1Won = String(team1?.id) === String(winnerTeamId);
+  const team2Won = String(team2?.id) === String(winnerTeamId);
+
+  return (
+    <section className="surface-card overflow-hidden p-0">
+      <div className="bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_35%),linear-gradient(135deg,_#ffffff,_#f4fbf8)] px-4 py-5 sm:px-8 sm:py-8">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <StatusPill status="completed" />
+          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Final result
+          </p>
+        </div>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-700">
+            Match complete
+          </p>
+          <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950 sm:text-4xl">
+            {winnerText}
+          </h2>
+        </div>
+
+        <div className="mt-6 grid gap-4 lg:grid-cols-2">
+          <article
+            className={`rounded-[2rem] border p-4 shadow-sm sm:p-6 ${
+              team1Won
+                ? "border-emerald-300 bg-emerald-50 shadow-[0_16px_40px_rgba(16,185,129,0.18)]"
+                : "border-slate-200 bg-white/85 opacity-90"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-4">
+                <TeamLogo team={team1} className="h-16 w-16 sm:h-20 sm:w-20" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <TeamName className="max-w-[14rem] text-lg text-slate-900 sm:max-w-[18rem] sm:text-2xl">
+                      {team1?.name ?? "Team 1"}
+                    </TeamName>
+                    {team1Won ? (
+                      <span className="rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white">
+                        Winner
+                      </span>
+                    ) : null}
+                  </div>
+                  {team1Won ? (
+                    <p className="mt-2 text-sm font-semibold text-emerald-700">
+                      Trophy team
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6">
+              <p className="text-5xl font-black tracking-tighter text-slate-950 sm:text-6xl">
+                {team1Summary.runs}
+                <span className="text-2xl text-slate-400 sm:text-4xl">
+                  /{team1Summary.wickets}
+                </span>
+              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">
+                Overs {team1Summary.overs}
+              </p>
+            </div>
+          </article>
+
+          <article
+            className={`rounded-[2rem] border p-4 shadow-sm sm:p-6 ${
+              team2Won
+                ? "border-emerald-300 bg-emerald-50 shadow-[0_16px_40px_rgba(16,185,129,0.18)]"
+                : "border-slate-200 bg-white/85 opacity-90"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-4">
+                <TeamLogo team={team2} className="h-16 w-16 sm:h-20 sm:w-20" />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <TeamName className="max-w-[14rem] text-lg text-slate-900 sm:max-w-[18rem] sm:text-2xl">
+                      {team2?.name ?? "Team 2"}
+                    </TeamName>
+                    {team2Won ? (
+                      <span className="rounded-full bg-emerald-600 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-white">
+                        Winner
+                      </span>
+                    ) : null}
+                  </div>
+                  {team2Won ? (
+                    <p className="mt-2 text-sm font-semibold text-emerald-700">
+                      Trophy team
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6">
+              <p className="text-5xl font-black tracking-tighter text-slate-950 sm:text-6xl">
+                {team2Summary.runs}
+                <span className="text-2xl text-slate-400 sm:text-4xl">
+                  /{team2Summary.wickets}
+                </span>
+              </p>
+              <p className="mt-2 text-sm font-semibold text-slate-600">
+                Overs {team2Summary.overs}
+              </p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Match() {
@@ -37,6 +436,8 @@ function Match() {
   const [showNewBatterModal, setShowNewBatterModal] = useState(false);
   const [showCustomUpdate, setShowCustomUpdate] = useState(false);
   const [showNextInningsModal, setShowNextInningsModal] = useState(false);
+  const [showWinnerSelectionModal, setShowWinnerSelectionModal] =
+    useState(false);
   const [pendingExtraType, setPendingExtraType] = useState("");
   const [pendingWicket, setPendingWicket] = useState(false);
   const [pendingNextInnings, setPendingNextInnings] = useState(null);
@@ -51,6 +452,7 @@ function Match() {
     strikerId: null,
     nonStrikerId: null,
     currentBowlerId: null,
+    winnerId: null,
     status: "upcoming",
   });
 
@@ -93,6 +495,7 @@ function Match() {
     setLiveState((prev) => ({
       ...prev,
       ...matchQuery.data.live,
+      winnerId: matchQuery.data.match.winner_id ?? null,
       status: matchQuery.data.match.status,
     }));
   }, [matchQuery.data]);
@@ -167,6 +570,8 @@ function Match() {
           match: {
             ...prev.match,
             status: nextLive.status ?? prev.match.status,
+            winner_id:
+              nextLive.winnerId ?? nextLive.winner_id ?? prev.match.winner_id ?? null,
           },
         };
       });
@@ -954,46 +1359,114 @@ function Match() {
     [liveState, matchId, pendingNextInnings, queryClient, syncCache],
   );
 
-  const handleCompleteMatch = useCallback(async () => {
+  const handleOpenCompleteMatch = useCallback(() => {
     if (!liveState.inningsId) return;
-    setIsSubmitting(true);
-    setError("");
-    try {
-      await supabase
-        .from("innings")
-        .update({ status: "completed" })
-        .eq("id", liveState.inningsId);
-      await supabase
-        .from("matches")
-        .update({ status: "completed", current_innings: liveState.inningsId })
-        .eq("id", matchId);
-      const next = { ...liveState, status: "completed" };
-      setLiveState(next);
-      syncCache(next);
-      queryClient.invalidateQueries({
-        queryKey: matchQueryKeys.detail(matchId),
-        refetchType: "inactive",
-      });
-    } catch {
-      setError("Unable to complete match.");
-    } finally {
-      setIsSubmitting(false);
+    setShowWinnerSelectionModal(true);
+  }, [liveState.inningsId]);
+
+  const handleCompleteMatch = useCallback(
+    async (winnerTeamId) => {
+      if (!liveState.inningsId || !winnerTeamId) return;
+      setIsSubmitting(true);
+      setError("");
+      try {
+        await supabase
+          .from("innings")
+          .update({ status: "completed" })
+          .eq("id", liveState.inningsId);
+        await supabase
+          .from("matches")
+          .update({
+            status: "completed",
+            current_innings: liveState.inningsId,
+            winner_id: winnerTeamId,
+          })
+          .eq("id", matchId);
+        const next = {
+          ...liveState,
+          status: "completed",
+          winnerId: winnerTeamId,
+        };
+        setLiveState(next);
+        syncCache(next);
+        setShowWinnerSelectionModal(false);
+        queryClient.invalidateQueries({
+          queryKey: matchQueryKeys.detail(matchId),
+          refetchType: "inactive",
+        });
+      } catch {
+        setError("Unable to complete match.");
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [liveState, matchId, queryClient, syncCache],
+  );
+
+  const matchStatus = liveState.status ?? base?.match?.status ?? "upcoming";
+  const scoreMap = useMemo(
+    () => buildTeamScoreMap(base?.innings?.all ?? []),
+    [base?.innings?.all],
+  );
+  const team1Summary = getTeamScoreSummary(base?.match?.team1, scoreMap);
+  const team2Summary = getTeamScoreSummary(base?.match?.team2, scoreMap);
+  const currentBattingTeam =
+    teams.find((t) => String(t?.id) === String(battingTeamId)) ||
+    base?.match?.team1;
+  const currentBowlingTeam =
+    teams.find((t) => String(t?.id) === String(bowlingTeamId)) ||
+    base?.match?.team2;
+  const battingSummary = getTeamScoreSummary(currentBattingTeam, scoreMap);
+  const bowlingSummary = getTeamScoreSummary(currentBowlingTeam, scoreMap);
+  const winnerTeamId =
+    base?.match?.winner_id ?? liveState.winnerId ?? null;
+  const winnerTeam =
+    teams.find((team) => String(team?.id) === String(winnerTeamId)) ?? null;
+  const winnerText = useMemo(() => {
+    if (!winnerTeam) return "Match complete";
+
+    if (base?.innings?.first && base?.innings?.second) {
+      const firstTeamId = String(base.innings.first.batting_team_id);
+      const secondTeamId = String(base.innings.second.batting_team_id);
+      if (String(winnerTeam.id) === firstTeamId) {
+        const margin = Math.max(
+          1,
+          Number(base.innings.first.runs ?? 0) -
+            Number(base.innings.second.runs ?? 0),
+        );
+        return `${winnerTeam.name} won by ${margin} runs`;
+      }
+      if (String(winnerTeam.id) === secondTeamId) {
+        const wicketsRemaining = Math.max(
+          1,
+          10 - Number(base.innings.second.wickets ?? 0),
+        );
+        return `${winnerTeam.name} won by ${wicketsRemaining} wickets`;
+      }
     }
-  }, [liveState, matchId, queryClient, syncCache]);
 
-  const latestInnings =
-    base?.innings?.all?.find((i) => i.id === liveState.inningsId) ??
-    base?.innings?.latest;
-
-  const currentBattingTeam = teams.find(t => String(t?.id) === String(battingTeamId)) || base?.match?.team1;
-  const currentBowlingTeam = teams.find(t => String(t?.id) !== String(battingTeamId)) || base?.match?.team2;
-  
-  let bowlingTeamPreviousScore = "";
-  if (base?.innings?.first && String(base.innings.first.batting_team_id) === String(currentBowlingTeam?.id)) {
-    bowlingTeamPreviousScore = `(${base.innings.first.runs}/${base.innings.first.wickets} in ${formatOvers(base.innings.first.balls)})`;
-  } else if (base?.innings?.second && String(base.innings.second.batting_team_id) === String(currentBowlingTeam?.id)) {
-    bowlingTeamPreviousScore = `(${base.innings.second.runs}/${base.innings.second.wickets} in ${formatOvers(base.innings.second.balls)})`;
-  }
+    const otherTeam =
+      String(winnerTeam.id) === String(base?.match?.team1?.id)
+        ? base?.match?.team2
+        : base?.match?.team1;
+    const winnerRuns = Number(scoreMap[String(winnerTeam.id)]?.runs ?? 0);
+    const otherRuns = Number(scoreMap[String(otherTeam?.id)]?.runs ?? 0);
+    if (winnerRuns !== otherRuns) {
+      const margin = Math.max(1, Math.abs(winnerRuns - otherRuns));
+      return `${winnerTeam.name} won by ${margin} runs`;
+    }
+    return `${winnerTeam.name} won the match`;
+  }, [base, scoreMap, winnerTeam]);
+  const targetText =
+    matchStatus === "live" &&
+    base?.innings?.first &&
+    String(liveState.inningsId) === String(base?.innings?.second?.id)
+      ? `Target ${Number(base.innings.first.runs || 0) + 1}`
+      : "";
+  const runRateText =
+    battingSummary.balls > 0
+      ? `${((battingSummary.runs * 6) / battingSummary.balls).toFixed(2)}`
+      : "0.00";
 
   const batterFor = (inningsId) =>
     inningsId
@@ -1049,117 +1522,73 @@ function Match() {
     <div className="app-shell">
       <NavBar />
       <main className="px-4 pb-28 pt-4 sm:px-6 lg:px-8">
-        <div className="mx-auto flex max-w-4xl flex-col gap-5">
+        <div className="mx-auto flex max-w-5xl flex-col gap-5">
           {base ? (
             <>
-              <section className="surface-card overflow-hidden p-0 shadow-sm">
-                <div className="bg-white p-4 sm:p-8">
-                  <div className="mb-4 flex justify-center">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-bold tracking-wider uppercase shadow-sm ${liveState.status === 'live' ? 'bg-red-50 text-red-600 ring-1 ring-red-500/30' : 'bg-slate-100 text-slate-600'}`}>
-                      {liveState.status === 'live' && <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse"></span>}
-                      {liveState.status}
-                    </span>
-                  </div>
+              {matchStatus === "upcoming" ? (
+                <UpcomingMatchView
+                  team1={base.match.team1}
+                  team2={base.match.team2}
+                />
+              ) : null}
 
-                  <div className="flex flex-col items-center text-center">
-                    <div className="mb-2 flex flex-col items-center gap-2">
-                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-slate-100 bg-slate-50 shadow-sm sm:h-20 sm:w-20">
-                        {currentBattingTeam?.logo ? (
-                          <img src={currentBattingTeam.logo} alt="Team logo" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-slate-400">
-                            {String(currentBattingTeam?.name ?? "T").slice(0, 1)}
-                          </div>
-                        )}
-                      </div>
-                      <p className="line-clamp-2 max-w-[250px] break-words text-base font-bold leading-tight text-slate-800 sm:text-lg">
-                        {currentBattingTeam?.name ?? "TBD"}
-                      </p>
-                    </div>
+              {matchStatus === "live" ? (
+                <LiveMatchView
+                  battingTeam={currentBattingTeam}
+                  bowlingTeam={currentBowlingTeam}
+                  battingSummary={battingSummary}
+                  bowlingSummary={bowlingSummary}
+                  strikerName={strikerName}
+                  nonStrikerName={nonStrikerName}
+                  currentBowlerName={currentBowlerName}
+                  targetText={targetText}
+                  runRateText={runRateText}
+                />
+              ) : null}
 
-                    <div className="my-2">
-                      <div className="text-7xl font-black tracking-tighter text-slate-900 sm:text-[6rem]">
-                        {liveState.runs}<span className="text-4xl text-slate-400 sm:text-7xl">/{liveState.wickets}</span>
-                      </div>
-                      <div className="mt-2 text-sm font-bold text-slate-500 sm:text-xl">
-                        Overs <span className="text-slate-800">{formatOvers(liveState.balls)}</span>
-                      </div>
-                    </div>
-
-                    {base?.innings?.first && liveState.inningsId === base?.innings?.second?.id && (
-                      <div className="mt-4 inline-flex items-center rounded-xl bg-blue-50 px-4 py-2 text-sm font-bold text-blue-800 shadow-sm sm:mt-6 sm:px-6 sm:py-3 sm:text-base">
-                        Target: {Number(base.innings.first.runs) + 1}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-100 bg-slate-50 p-3 sm:p-4">
-                  <div className="flex items-center justify-center gap-3 opacity-80">
-                    <div className="h-6 w-6 shrink-0 overflow-hidden rounded-full border bg-white sm:h-8 sm:w-8">
-                      {currentBowlingTeam?.logo ? (
-                        <img src={currentBowlingTeam.logo} alt="Team logo" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-slate-400">
-                          {String(currentBowlingTeam?.name ?? "T").slice(0, 1)}
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs font-semibold text-slate-700 sm:text-sm">
-                      {currentBowlingTeam?.name ?? "TBD"}
-                      {bowlingTeamPreviousScore && (
-                        <span className="ml-1.5 font-bold text-slate-900">{bowlingTeamPreviousScore}</span>
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </section>
+              {matchStatus === "completed" ? (
+                <CompletedMatchView
+                  team1={base.match.team1}
+                  team2={base.match.team2}
+                  team1Summary={team1Summary}
+                  team2Summary={team2Summary}
+                  winnerTeamId={winnerTeamId}
+                  winnerText={winnerText}
+                />
+              ) : null}
 
               {!isSessionLoading && isAdminUser ? (
                 <>
-                  {liveState.status !== "upcoming" ? (
-                    <section className="surface-card p-3 sm:p-5">
-                      <div className="grid gap-2 sm:grid-cols-3">
-                        <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
-                          <span className="font-semibold text-slate-700">
-                            Striker:
-                          </span>{" "}
-                          {strikerName}
-                        </p>
-                        <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
-                          <span className="font-semibold text-slate-700">
-                            Non-striker:
-                          </span>{" "}
-                          {nonStrikerName}
-                        </p>
-                        <p className="rounded-xl border border-slate-200 px-3 py-2 text-xs sm:text-sm">
-                          <span className="font-semibold text-slate-700">
-                            Bowler:
-                          </span>{" "}
-                          {currentBowlerName}
-                        </p>
+                  {matchStatus === "upcoming" ? (
+                    <section className="surface-card overflow-hidden border border-blue-100 bg-white p-0">
+                      <div className="grid gap-4 bg-[linear-gradient(135deg,_rgba(1,69,242,0.06),_rgba(255,255,255,1))] p-4 sm:p-6">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="eyebrow">Admin Controls</p>
+                            <h3 className="mt-2 text-lg font-semibold text-slate-900">
+                              Ready to start the match
+                            </h3>
+                          </div>
+                          <StatusPill status="upcoming" />
+                        </div>
+                        <button
+                          className="h-16 w-full rounded-2xl bg-slate-950 text-lg font-semibold text-white shadow-sm disabled:opacity-50"
+                          disabled={isSubmitting}
+                          onClick={() => {
+                            team1PlayersQuery.refetch();
+                            team2PlayersQuery.refetch();
+                            setShowStartModal(true);
+                          }}
+                        >
+                          Start Match
+                        </button>
                       </div>
-                    </section>
-                  ) : null}
-                  {liveState.status === "upcoming" ? (
-                    <section className="surface-card">
-                      <button
-                        className="h-16 w-full rounded-2xl bg-slate-900 text-lg font-semibold text-white disabled:opacity-50"
-                        disabled={isSubmitting}
-                        onClick={() => {
-                          team1PlayersQuery.refetch();
-                          team2PlayersQuery.refetch();
-                          setShowStartModal(true);
-                        }}
-                      >
-                        Start Match
-                      </button>
                     </section>
                   ) : (
                     <AdminPanel
                       disabled={!liveState.inningsId}
                       isSubmitting={isSubmitting}
-                      status={liveState.status}
+                      status={matchStatus}
                       canCustomUpdate={isAdminUser}
                       onRun={(runs) => scoreBall({ runs })}
                       onExtra={(type) => {
@@ -1170,15 +1599,15 @@ function Match() {
                       onUndo={handleUndo}
                       onCustomUpdate={() => setShowCustomUpdate(true)}
                       onCompleteInnings={handleCompleteInnings}
-                      onCompleteMatch={handleCompleteMatch}
+                      onCompleteMatch={handleOpenCompleteMatch}
                     />
                   )}
                 </>
               ) : null}
 
               {error ? (
-                <section className="feedback-panel">
-                  <p className="text-sm text-rose-600">{error}</p>
+                <section className="feedback-panel border-rose-200 bg-white">
+                  <p className="text-sm font-medium text-rose-600">{error}</p>
                 </section>
               ) : null}
 
@@ -1198,7 +1627,11 @@ function Match() {
                 onClose={() => setShowExtrasModal(false)}
                 onSelect={({ runs, shouldSwapStrike }) => {
                   setShowExtrasModal(false);
-                  scoreBall({ runs, extraType: pendingExtraType, shouldSwapStrike });
+                  scoreBall({
+                    runs,
+                    extraType: pendingExtraType,
+                    shouldSwapStrike,
+                  });
                 }}
               />
               <NewBowlerModal
@@ -1233,6 +1666,12 @@ function Match() {
                 bowlingPlayers={nextInningsBowlingPlayers}
                 onClose={() => setShowNextInningsModal(false)}
                 onConfirm={handleStartNextInningsPlayers}
+              />
+              <WinnerSelectionModal
+                open={showWinnerSelectionModal}
+                teams={teams}
+                onClose={() => setShowWinnerSelectionModal(false)}
+                onConfirm={handleCompleteMatch}
               />
             </>
           ) : null}

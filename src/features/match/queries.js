@@ -105,7 +105,7 @@ export async function fetchMatchDetails(matchId) {
   const { data: match, error: matchError } = await supabase
     .from("matches")
     .select(
-      "id, team1_id, team2_id, current_innings, striker_id, non_striker_id, current_bowler_id, status",
+      "id, team1_id, team2_id, current_innings, striker_id, non_striker_id, current_bowler_id, winner_id, status",
     )
     .eq("id", matchId)
     .single();
