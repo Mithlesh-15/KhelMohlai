@@ -1391,7 +1391,7 @@ function Match() {
     [liveState, matchId, queryClient, syncCache],
   );
 
-  const matchStatus = liveState.status ?? base?.match?.status ?? "upcoming";
+  const matchStatus = base?.match?.status ?? "upcoming";
   const scoreMap = useMemo(
     () => buildTeamScoreMap(base?.innings?.all ?? []),
     [base?.innings?.all],
@@ -1404,10 +1404,42 @@ function Match() {
   const currentBowlingTeam =
     teams.find((t) => String(t?.id) === String(bowlingTeamId)) ||
     base?.match?.team2;
-  const battingSummary = getTeamScoreSummary(currentBattingTeam, scoreMap);
+  const battingSummary = useMemo(() => {
+    const cachedSummary = getTeamScoreSummary(currentBattingTeam, scoreMap);
+    if (matchStatus !== "live" || !liveState.inningsId) {
+      return cachedSummary;
+    }
+
+    const cachedInningsId = cachedSummary.inningsId;
+    if (
+      cachedInningsId &&
+      String(cachedInningsId) !== String(liveState.inningsId)
+    ) {
+      return cachedSummary;
+    }
+
+    const liveBalls = Number(liveState.balls ?? cachedSummary.balls ?? 0);
+    return {
+      ...cachedSummary,
+      runs: Number(liveState.runs ?? cachedSummary.runs ?? 0),
+      wickets: Number(liveState.wickets ?? cachedSummary.wickets ?? 0),
+      balls: liveBalls,
+      overs: formatOvers(liveBalls),
+      inningsId: liveState.inningsId ?? cachedSummary.inningsId,
+      hasScore: Boolean(liveState.inningsId || cachedSummary.hasScore),
+    };
+  }, [
+    currentBattingTeam,
+    liveState.balls,
+    liveState.inningsId,
+    liveState.runs,
+    liveState.wickets,
+    matchStatus,
+    scoreMap,
+  ]);
   const bowlingSummary = getTeamScoreSummary(currentBowlingTeam, scoreMap);
   const winnerTeamId =
-    base?.match?.winner_id ?? liveState.winnerId ?? null;
+    base?.match?.winner_id ?? null;
   const winnerTeam =
     teams.find((team) => String(team?.id) === String(winnerTeamId)) ?? null;
   const winnerText = useMemo(() => {
@@ -1496,14 +1528,14 @@ function Match() {
       ),
     [team1PlayersQuery.data, team2PlayersQuery.data],
   );
-  const strikerName = liveState.strikerId
-    ? (playerNameById.get(String(liveState.strikerId)) ?? "Unknown")
+  const strikerName = base?.match?.striker_id
+    ? (playerNameById.get(String(base.match.striker_id)) ?? "Unknown")
     : "Unassigned";
-  const nonStrikerName = liveState.nonStrikerId
-    ? (playerNameById.get(String(liveState.nonStrikerId)) ?? "Unknown")
+  const nonStrikerName = base?.match?.non_striker_id
+    ? (playerNameById.get(String(base.match.non_striker_id)) ?? "Unknown")
     : "Unassigned";
-  const currentBowlerName = liveState.currentBowlerId
-    ? (playerNameById.get(String(liveState.currentBowlerId)) ?? "Unknown")
+  const currentBowlerName = base?.match?.current_bowler_id
+    ? (playerNameById.get(String(base.match.current_bowler_id)) ?? "Unknown")
     : "Unassigned";
 
   return (

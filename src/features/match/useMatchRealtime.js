@@ -29,25 +29,6 @@ export function useMatchRealtime({
           });
         },
       )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "matches",
-          filter: `id=eq.${matchId}`,
-        },
-        (payload) => {
-          const next = payload?.new;
-          if (!next) return;
-          onLiveScoreEvent?.({
-            strikerId: next.striker_id ?? null,
-            nonStrikerId: next.non_striker_id ?? null,
-            currentBowlerId: next.current_bowler_id ?? null,
-            status: String(next.status ?? "live").toLowerCase(),
-          });
-        },
-      )
       .subscribe();
 
     return () => {
