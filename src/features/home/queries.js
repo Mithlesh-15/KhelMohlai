@@ -6,6 +6,8 @@ const FALLBACK_TEAM = {
   logo: "",
 };
 
+const SPECIAL_STAGES = new Set(["final", "semi_final", "eliminator"]);
+
 export const homeQueryKeys = {
   teams: ["teams"],
   matches: ["matches"],
@@ -25,7 +27,7 @@ export async function fetchTeams() {
 export async function fetchMatches() {
   const { data, error } = await supabase
     .from("matches")
-    .select("id, team1_id, team2_id, start_time, status")
+    .select("id, team1_id, team2_id, start_time, status, stage")
     .order("start_time", { ascending: true });
 
   if (error) {
@@ -49,6 +51,30 @@ function normalizeStatus(status) {
   }
 
   return "upcoming";
+}
+
+function normalizeStage(stage) {
+  const value = String(stage ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (SPECIAL_STAGES.has(value)) {
+    return value;
+  }
+
+  return null;
+}
+
+function normalizeTeam(team) {
+  if (!team?.name || !team?.logo) {
+    return FALLBACK_TEAM;
+  }
+
+  return {
+    id: team.id ?? null,
+    name: team.name,
+    logo: team.logo,
+  };
 }
 
 function formatMatchStartTime(startTime) {
@@ -93,14 +119,7 @@ function formatMatchStartTime(startTime) {
 
 export function mapMatchesWithTeams(matches, teams) {
   const teamMap = new Map(
-    (teams ?? []).map((team) => [
-      team.id,
-      {
-        id: team.id,
-        name: team.name || FALLBACK_TEAM.name,
-        logo: team.logo || FALLBACK_TEAM.logo,
-      },
-    ]),
+    (teams ?? []).map((team) => [team.id, normalizeTeam(team)]),
   );
 
   return (matches ?? []).map((match) => {
@@ -109,9 +128,10 @@ export function mapMatchesWithTeams(matches, teams) {
     return {
       ...match,
       status: normalizedStatus,
+      stage: normalizeStage(match.stage),
       formattedStartTime: formatMatchStartTime(match.start_time),
-      team1: teamMap.get(match.team1_id) || FALLBACK_TEAM,
-      team2: teamMap.get(match.team2_id) || FALLBACK_TEAM,
+      team1: normalizeTeam(teamMap.get(match.team1_id)),
+      team2: normalizeTeam(teamMap.get(match.team2_id)),
     };
   });
 }

@@ -152,6 +152,73 @@
     border-color: rgba(1, 69, 242, 0.18);
   }
 
+  .match-card-final,
+  .match-card-semi-final,
+  .match-card-eliminator {
+    position: relative;
+    overflow: hidden;
+    padding-top: 1.25rem;
+  }
+
+  .match-card-final {
+    background:
+      radial-gradient(circle at top left, rgba(251, 191, 36, 0.22), transparent 34%),
+      linear-gradient(180deg, rgba(255, 251, 235, 0.96), rgba(255, 255, 255, 1));
+    border-color: rgba(245, 158, 11, 0.42);
+    box-shadow:
+      0 0 0 1px rgba(245, 158, 11, 0.14),
+      0 18px 46px rgba(180, 83, 9, 0.14),
+      0 12px 32px rgba(15, 23, 42, 0.08);
+  }
+
+  .match-card-final::before,
+  .match-card-semi-final::before,
+  .match-card-eliminator::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    opacity: 0.9;
+  }
+
+  .match-card-final::before {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.24), transparent 42%);
+    box-shadow: inset 0 0 0 1px rgba(251, 191, 36, 0.18);
+  }
+
+  .match-card-semi-final {
+    background:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 34%),
+      linear-gradient(180deg, rgba(239, 246, 255, 0.96), rgba(255, 255, 255, 1));
+    border-color: rgba(59, 130, 246, 0.36);
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.12),
+      0 16px 42px rgba(37, 99, 235, 0.12),
+      0 12px 32px rgba(15, 23, 42, 0.08);
+  }
+
+  .match-card-semi-final::before {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), transparent 42%);
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.16);
+  }
+
+  .match-card-eliminator {
+    background:
+      radial-gradient(circle at top left, rgba(249, 115, 22, 0.2), transparent 34%),
+      linear-gradient(180deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 1));
+    border-color: rgba(249, 115, 22, 0.36);
+    box-shadow:
+      0 0 0 1px rgba(249, 115, 22, 0.12),
+      0 16px 42px rgba(234, 88, 12, 0.12),
+      0 12px 32px rgba(15, 23, 42, 0.08);
+  }
+
+  .match-card-eliminator::before {
+    background: linear-gradient(135deg, rgba(249, 115, 22, 0.2), transparent 42%);
+    box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.16);
+  }
+
   .status-badge {
     @apply inline-flex rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset;
   }
@@ -172,5 +239,30 @@
     background-color: var(--completed-bg);
     color: var(--completed-text);
     --tw-ring-color: var(--completed-border);
+  }
+
+  .match-stage-badge {
+    @apply inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold tracking-[0.16em] ring-1 ring-inset;
+  }
+
+  .match-stage-badge-final {
+    background: linear-gradient(135deg, #fbbf24, #f59e0b);
+    color: #4a2c0a;
+    --tw-ring-color: rgba(180, 83, 9, 0.24);
+    box-shadow: 0 10px 24px rgba(245, 158, 11, 0.24);
+  }
+
+  .match-stage-badge-semi-final {
+    background: linear-gradient(135deg, #60a5fa, #2563eb);
+    color: #eff6ff;
+    --tw-ring-color: rgba(37, 99, 235, 0.24);
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.18);
+  }
+
+  .match-stage-badge-eliminator {
+    background: linear-gradient(135deg, #fb923c, #ef4444);
+    color: #fff7ed;
+    --tw-ring-color: rgba(239, 68, 68, 0.22);
+    box-shadow: 0 10px 24px rgba(239, 68, 68, 0.18);
   }
 }
