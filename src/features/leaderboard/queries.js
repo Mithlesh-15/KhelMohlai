@@ -35,7 +35,7 @@ export async function fetchLeaderboardTable() {
   const { data, error } = await supabase
     .from("teams")
     .select(
-      "id, name, logo, played, wins, losses, points, runs_scored, balls_faced, runs_conceded, balls_bowled",
+      "id, name, logo, state, played, wins, losses, points, runs_scored, balls_faced, runs_conceded, balls_bowled",
     );
 
   if (error) {
@@ -55,6 +55,7 @@ export async function fetchLeaderboardTable() {
         id: team.id,
         name: team.name || "Unnamed Team",
         logo: team.logo || FALLBACK_LOGO,
+        state: team.state ?? null,
         played: Number(team.played) || 0,
         wins: Number(team.wins) || 0,
         losses: Number(team.losses) || 0,

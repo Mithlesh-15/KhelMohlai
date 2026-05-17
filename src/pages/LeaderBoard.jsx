@@ -5,6 +5,72 @@ import {
   leaderboardQueryKeys,
 } from "../features/leaderboard/queries";
 
+function getTeamStateMeta(state, position) {
+  if (state === true) {
+    return {
+      label: "QUALIFIED",
+      badgeStyle: {
+        backgroundColor: "rgba(34, 197, 94, 0.14)",
+        borderColor: "rgba(34, 197, 94, 0.3)",
+        color: "rgb(21, 128, 61)",
+      },
+      rowStyle: {
+        background:
+          "linear-gradient(135deg, rgba(240, 253, 244, 0.95), rgba(255, 255, 255, 0.98))",
+        borderColor: "rgba(134, 239, 172, 0.95)",
+        boxShadow: "inset 4px 0 0 rgba(34, 197, 94, 0.6), 0 12px 28px rgba(15, 23, 42, 0.07)",
+      },
+      avatarStyle: {
+        backgroundColor: "rgba(34, 197, 94, 0.14)",
+        color: "rgb(21, 128, 61)",
+        borderColor: "rgba(134, 239, 172, 0.7)",
+      },
+    };
+  }
+
+  if (state === false) {
+    return {
+      label: "ELIMINATED",
+      badgeStyle: {
+        backgroundColor: "rgba(239, 68, 68, 0.12)",
+        borderColor: "rgba(239, 68, 68, 0.28)",
+        color: "rgb(185, 28, 28)",
+      },
+      rowStyle: {
+        background:
+          "linear-gradient(135deg, rgba(255, 241, 242, 0.94), rgba(255, 255, 255, 0.97))",
+        borderColor: "rgba(252, 165, 165, 0.95)",
+        boxShadow: "inset 4px 0 0 rgba(239, 68, 68, 0.55), 0 10px 22px rgba(15, 23, 42, 0.05)",
+      },
+      avatarStyle: {
+        backgroundColor: "rgba(239, 68, 68, 0.12)",
+        color: "rgb(185, 28, 28)",
+        borderColor: "rgba(252, 165, 165, 0.7)",
+      },
+    };
+  }
+
+  return {
+    label: null,
+    badgeStyle: null,
+    rowStyle: {
+      background:
+        position <= 4
+          ? "linear-gradient(135deg, rgba(232, 240, 255, 0.9), rgba(255, 255, 255, 0.98))"
+          : "rgba(255, 255, 255, 0.86)",
+      borderColor:
+        position <= 4 ? "rgba(191, 210, 255, 0.95)" : "rgba(217, 226, 236, 0.9)",
+      boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+    },
+    avatarStyle: {
+      backgroundColor:
+        position <= 4 ? "rgba(1, 69, 242, 0.12)" : "rgba(226, 232, 240, 0.7)",
+      color: position <= 4 ? "var(--color-primary)" : "var(--text-primary)",
+      borderColor: "rgba(191, 210, 255, 0.65)",
+    },
+  };
+}
+
 function LoadingRow() {
   return (
     <div
@@ -166,72 +232,74 @@ function LeaderBoard() {
               ) : null}
 
               {!isLoading && !isError
-                ? teams.map((team) => (
-                    <article
-                      key={team.id}
-                      className="grid min-w-155 grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] items-center gap-2 rounded-[1.2rem] border px-3 py-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 sm:min-w-175 sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
-                      style={{
-                        background:
-                          team.position <= 4
-                            ? "linear-gradient(135deg, rgba(232, 240, 255, 0.9), rgba(255, 255, 255, 0.98))"
-                            : "rgba(255, 255, 255, 0.86)",
-                        borderColor:
-                          team.position <= 4
-                            ? "rgba(191, 210, 255, 0.95)"
-                            : "rgba(217, 226, 236, 0.9)",
-                        boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
-                      }}
-                    >
-                      <div className="flex items-center">
-                        <span
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold sm:h-9 sm:w-9 sm:text-sm"
-                          style={{
-                            backgroundColor:
-                              team.position <= 4
-                                ? "rgba(1, 69, 242, 0.12)"
-                                : "rgba(226, 232, 240, 0.7)",
-                            color:
-                              team.position <= 4
-                                ? "var(--color-primary)"
-                                : "var(--text-primary)",
-                          }}
-                        >
-                          {team.position}
-                        </span>
-                      </div>
+                ? teams.map((team) => {
+                    const stateMeta = getTeamStateMeta(team.state, team.position);
 
-                      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                        <img
-                          src={team.logo}
-                          alt={`${team.name} logo`}
-                          className="h-9 w-9 rounded-xl border object-cover sm:h-10 sm:w-10 sm:rounded-2xl"
-                          style={{ borderColor: "rgba(191, 210, 255, 0.65)" }}
-                        />
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-semibold sm:text-sm">
-                            {team.name}
-                          </p>
+                    return (
+                      <article
+                        key={team.id}
+                        className="grid min-w-155 grid-cols-[44px_minmax(170px,1.8fr)_52px_52px_52px_60px_82px] items-center gap-2 rounded-[1.2rem] border px-3 py-3 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 sm:min-w-175 sm:grid-cols-[52px_minmax(220px,1.8fr)_62px_62px_62px_72px_100px] sm:gap-3 sm:px-4 sm:py-4"
+                        style={{
+                          ...stateMeta.rowStyle,
+                        }}
+                      >
+                        <div className="flex items-center">
+                          <span
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold sm:h-9 sm:w-9 sm:text-sm"
+                            style={{
+                              backgroundColor: stateMeta.avatarStyle.backgroundColor,
+                              color: stateMeta.avatarStyle.color,
+                              border: "1px solid",
+                              borderColor: stateMeta.avatarStyle.borderColor,
+                            }}
+                          >
+                            {team.position}
+                          </span>
                         </div>
-                      </div>
 
-                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
-                        {team.played}
-                      </span>
-                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
-                        {team.wins}
-                      </span>
-                      <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
-                        {team.losses}
-                      </span>
-                      <span className="text-right text-sm font-bold tabular-nums sm:text-sm">
-                        {team.points}
-                      </span>
-                      <span className="text-right text-xs font-semibold tabular-nums sm:text-sm">
-                        {team.netRunRate >= 0 ? "+" : ""}
-                        {team.netRunRate.toFixed(3)}
-                      </span>
-                    </article>
-                  ))
+                        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                          <img
+                            src={team.logo}
+                            alt={`${team.name} logo`}
+                            className="h-9 w-9 rounded-xl border object-cover sm:h-10 sm:w-10 sm:rounded-2xl"
+                            style={{ borderColor: stateMeta.avatarStyle.borderColor }}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                              <p className="truncate text-xs font-semibold sm:text-sm">
+                                {team.name}
+                              </p>
+                              {stateMeta.label ? (
+                                <span
+                                  className="inline-flex w-fit items-center rounded-full border px-2 py-0.5 text-[9px] font-bold tracking-[0.14em] sm:text-[10px]"
+                                  style={stateMeta.badgeStyle}
+                                >
+                                  {stateMeta.label}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        </div>
+
+                        <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
+                          {team.played}
+                        </span>
+                        <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
+                          {team.wins}
+                        </span>
+                        <span className="text-right text-xs font-medium tabular-nums sm:text-sm">
+                          {team.losses}
+                        </span>
+                        <span className="text-right text-sm font-bold tabular-nums sm:text-sm">
+                          {team.points}
+                        </span>
+                        <span className="text-right text-xs font-semibold tabular-nums sm:text-sm">
+                          {team.netRunRate >= 0 ? "+" : ""}
+                          {team.netRunRate.toFixed(3)}
+                        </span>
+                      </article>
+                    );
+                  })
                 : null}
             </div>
           </div>
